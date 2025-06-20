@@ -24,4 +24,5 @@
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
+*.swp
+*.swo
