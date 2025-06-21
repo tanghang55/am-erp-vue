@@ -2,6 +2,18 @@
 
 This repository demonstrates a simple Vue-based ERP demo.
 
+## Source Structure
+
+Domain modules live under `src/modules`. Each module contains an
+`index.vue` file as a placeholder component. For example:
+
+```
+src/modules/user/index.vue
+src/modules/product/index.vue
+```
+
+You can extend these components with actual business logic.
+
 ## Prerequisites
 
 - Node.js **16** or later is recommended.
