@@ -2,6 +2,11 @@
 
 This repository demonstrates a simple Vue-based ERP demo.
 
+## Internationalization
+
+This project now includes basic i18n setup using [vue-i18n](https://vue-i18n.intlify.dev/).
+Translation files live under `src/locales`.
+
 ## Prerequisites
 
 - Node.js **16** or later is recommended.
