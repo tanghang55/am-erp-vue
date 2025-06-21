@@ -43,6 +43,14 @@ npm run dev
 
 This will launch the local server, typically at `http://localhost:5173`.
 
+## Testing
+
+Run unit tests with:
+
+```bash
+npm run test
+```
+
 ## Usage Example
 
 ```bash
