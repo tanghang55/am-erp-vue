@@ -2,6 +2,12 @@
 
 This repository demonstrates a simple Vue-based ERP demo.
 
+
+## Internationalization
+
+This project now includes basic i18n setup using [vue-i18n](https://vue-i18n.intlify.dev/).
+Translation files live under `src/locales`.
+
 ## Source Structure
 
 Domain modules live under `src/modules`. Each module contains an
@@ -13,6 +19,7 @@ src/modules/product/index.vue
 ```
 
 You can extend these components with actual business logic.
+
 
 ## Prerequisites
 
