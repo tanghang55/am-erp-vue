@@ -16,6 +16,8 @@ Domain modules live under `src/modules`. Each module contains an
 ```
 src/modules/user/index.vue
 src/modules/product/index.vue
+src/modules/Login.vue
+src/modules/Register.vue
 ```
 
 You can extend these components with actual business logic.
