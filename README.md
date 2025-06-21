@@ -46,3 +46,8 @@ $ npm run dev
 ```
 
 A screenshot or more detailed demo may be added in the future.
+
+## State Management
+
+This project uses [Pinia](https://pinia.vuejs.org/) for state management. An example
+store is located in `src/store/counter.js`.
