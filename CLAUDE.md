@@ -397,3 +397,15 @@ location / {
   try_files $uri $uri/ /index.html;
 }
 ```
+
+## Project Progress
+
+Last updated: 2026-01-12
+
+### Current Issues
+- Product images missing in the catalog/product module (needs backend field + upload flow + frontend display).
+- Code structure not modularized; frontend still needs migration to `src/modules/*` layout.
+
+### Next Steps
+- Define product image data model and upload/storage flow, then update API and UI display.
+- Align frontend to `src/modules/*` layout after backend catalog refactor.

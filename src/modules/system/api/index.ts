@@ -1,0 +1,91 @@
+/**
+ * System Module API
+ */
+
+import request from '@/utils/request'
+import type { ApiResponse } from '@/modules/common/types'
+import type {
+  SystemSettingsListResponse,
+  CreateSystemSettingRequest,
+  UpdateSystemSettingRequest,
+  FieldLabelListResponse,
+  CreateFieldLabelRequest,
+  UpdateFieldLabelRequest
+} from '../types'
+
+const BASE_URL = '/api/v1/system'
+
+/**
+ * 获取系统配置
+ */
+export const getSystemSettings = (params?: {
+  scope_type?: string
+  scope_id?: number
+  keyword?: string
+  page?: number
+  page_size?: number
+}) =>
+  request<ApiResponse<SystemSettingsListResponse>>({
+    url: `${BASE_URL}/settings`,
+    method: 'get',
+    params
+  })
+
+/**
+ * 新增/覆盖系统配置
+ */
+export const createSystemSetting = (data: CreateSystemSettingRequest) =>
+  request<ApiResponse<any>>({
+    url: `${BASE_URL}/settings`,
+    method: 'post',
+    data
+  })
+
+/**
+ * 更新系统配置
+ */
+export const updateSystemSetting = (id: number, data: UpdateSystemSettingRequest) =>
+  request<ApiResponse<any>>({
+    url: `${BASE_URL}/settings/${id}`,
+    method: 'put',
+    data
+  })
+
+/**
+ * 获取标签配置列表
+ */
+export const getFieldLabelList = (params?: { keyword?: string; page?: number; page_size?: number }) =>
+  request<ApiResponse<FieldLabelListResponse>>({
+    url: `${BASE_URL}/field-labels/manage`,
+    method: 'get',
+    params
+  })
+
+/**
+ * 新增标签配置
+ */
+export const createFieldLabel = (data: CreateFieldLabelRequest) =>
+  request<ApiResponse<any>>({
+    url: `${BASE_URL}/field-labels`,
+    method: 'post',
+    data
+  })
+
+/**
+ * 更新标签配置
+ */
+export const updateFieldLabel = (id: number, data: UpdateFieldLabelRequest) =>
+  request<ApiResponse<any>>({
+    url: `${BASE_URL}/field-labels/${id}`,
+    method: 'put',
+    data
+  })
+
+/**
+ * 删除标签配置
+ */
+export const deleteFieldLabel = (id: number) =>
+  request<ApiResponse<any>>({
+    url: `${BASE_URL}/field-labels/${id}`,
+    method: 'delete'
+  })

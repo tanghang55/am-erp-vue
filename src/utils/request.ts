@@ -1,0 +1,101 @@
+import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios'
+import { ElMessage } from 'element-plus'
+
+// 创建axios实例
+const service: AxiosInstance = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
+
+// 请求拦截器
+service.interceptors.request.use(
+  (config) => {
+    // 从localStorage获取token（如果有）
+    const token = localStorage.getItem('token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    const operatorId = getOperatorId()
+    if (operatorId && config.method) {
+      const method = config.method.toLowerCase()
+      if (['post', 'put', 'patch', 'delete'].includes(method)) {
+        if (config.data instanceof FormData) {
+          if (!config.data.has('operator_id')) {
+            config.data.append('operator_id', String(operatorId))
+          }
+        } else if (typeof config.data === 'object' && config.data !== null) {
+          if (!('operator_id' in config.data)) {
+            config.data.operator_id = operatorId
+          }
+        } else if (config.data === undefined) {
+          config.data = { operator_id: operatorId }
+        }
+      }
+    }
+    return config
+  },
+  (error) => {
+    console.error('Request error:', error)
+    return Promise.reject(error)
+  }
+)
+
+// 响应拦截器
+service.interceptors.response.use(
+  (response: AxiosResponse) => {
+    const res = response.data
+
+    // 如果后端返回的是标准格式 {success: boolean, data: any, message?: string}
+    if (res.success === false) {
+      ElMessage.error(res.message || 'Request failed')
+      return Promise.reject(new Error(res.message || 'Request failed'))
+    }
+
+    return res
+  },
+  (error) => {
+    console.error('Response error:', error)
+
+    let message = 'Unknown error'
+    if (error.response) {
+      switch (error.response.status) {
+        case 401:
+          message = 'Unauthorized, please login'
+          // 可以在这里跳转到登录页
+          break
+        case 403:
+          message = 'Access denied'
+          break
+        case 404:
+          message = 'Resource not found'
+          break
+        case 500:
+          message = 'Server error'
+          break
+        default:
+          message = error.response.data?.error || error.message
+      }
+    } else if (error.request) {
+      message = 'Network error, please check your connection'
+    }
+
+    ElMessage.error(message)
+    return Promise.reject(error)
+  }
+)
+
+export default service
+
+const getOperatorId = () => {
+  try {
+    const savedUser = localStorage.getItem('user')
+    if (!savedUser) return null
+    const parsed = JSON.parse(savedUser)
+    return parsed?.id ?? null
+  } catch (error) {
+    return null
+  }
+}
