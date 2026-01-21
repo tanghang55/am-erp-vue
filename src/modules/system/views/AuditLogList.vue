@@ -118,7 +118,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { getAuditLogList } from '../api/system'
+import { getSystemAuditLogList } from '../api'
 import { useLocaleStore } from '@/modules/common/stores/localeStore'
 import { useFieldLabelStore } from '@/modules/common/stores/fieldLabelStore'
 import { useAuditLogFormatter } from '@/modules/common/composables/useAuditLogFormatter'
@@ -171,7 +171,7 @@ const actionOptions = [
 const loadLogs = async () => {
   loading.value = true
   try {
-    const res = await getAuditLogList({
+    const res = await getSystemAuditLogList({
       page: queryParams.page,
       page_size: queryParams.page_size,
       module: queryParams.module || undefined,

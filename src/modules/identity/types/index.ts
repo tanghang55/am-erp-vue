@@ -7,10 +7,9 @@ export interface User {
   real_name?: string
   phone?: string
   status: 'ACTIVE' | 'DISABLED'
-  last_login_at?: string
-  last_login_ip?: string
-  created_at: string
-  updated_at: string
+  last_login_at?: string | null
+  gmt_create: string
+  gmt_modified: string
 }
 
 export interface Role {
@@ -18,19 +17,20 @@ export interface Role {
   name: string
   display_name: string
   description?: string
-  status: 'ACTIVE' | 'DISABLED'
-  created_at: string
-  updated_at: string
+  gmt_create: string
+  gmt_modified: string
+  permissions?: Permission[] | null
 }
 
 export interface Permission {
   id: number
   name: string
-  display_name: string
-  description?: string
+  code: string
   module: string
-  created_at: string
-  updated_at: string
+  description?: string
+  status: 'ACTIVE' | 'DISABLED'
+  gmt_create: string
+  gmt_modified: string
 }
 
 export interface MenuItem {
@@ -39,10 +39,13 @@ export interface MenuItem {
   title_en?: string | null
   code: string
   path?: string | null
+  component?: string | null
   icon?: string
   parent_id?: number | null
   sort?: number
-  status: 'ACTIVE' | 'DISABLED'
+  is_hidden?: number
+  permission_code?: string | null
+  status?: string
   children?: MenuItem[]
 }
 
@@ -52,42 +55,8 @@ export interface LoginParams {
 }
 
 export interface LoginResponse {
-  user: {
-    id: number
-    username: string
-    real_name?: string
-    email?: string
-  }
+  user: User
   roles: Role[]
-  permissions: string[]
-}
-
-export interface AuditLog {
-  id: number
-  trace_id?: string | null
-  user_id?: number | null
-  username?: string | null
-  module: string
-  action: string
-  entity_type?: string | null
-  entity_id?: string | null
-  changes?: string | null
-  ip_address?: string | null
-  user_agent?: string | null
-  created_at: string
-  updated_at: string
-}
-
-export interface AuditLogQueryParams {
-  page?: number
-  page_size?: number
-  module?: string
-  action?: string
-  user_id?: number
-  username?: string
-  entity_type?: string
-  entity_id?: string
-  keyword?: string
-  date_from?: string
-  date_to?: string
+  permissions: Permission[]
+  access_token: string
 }

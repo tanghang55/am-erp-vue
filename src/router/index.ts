@@ -29,7 +29,7 @@ const router = createRouter({
         {
           path: 'system/audit-logs',
           name: 'system-audit-logs',
-          component: () => import('@/modules/identity/views/AuditLogList.vue')
+          component: () => import('@/modules/system/views/AuditLogList.vue')
         },
         {
           path: 'system/settings',
@@ -42,14 +42,19 @@ const router = createRouter({
           component: () => import('@/modules/system/views/FieldLabelList.vue')
         },
         {
+          path: 'system/menus',
+          name: 'system-menus',
+          component: () => import('@/modules/system/views/MenuList.vue')
+        },
+        {
           path: 'product/list',
           name: 'product-skus',
           component: () => import('@/modules/product/views/ProductList.vue')
         },
         {
-          path: 'product/suppliers',
-          name: 'product-suppliers',
-          component: () => import('@/modules/product/views/SupplierList.vue')
+          path: 'product/images/:id',
+          name: 'product-images',
+          component: () => import('@/modules/product/views/ProductImageManager.vue')
         },
         {
           path: 'product/parents',
@@ -60,6 +65,16 @@ const router = createRouter({
           path: 'product/combos',
           name: 'product-combos',
           component: () => import('@/modules/product/views/ProductComboList.vue')
+        },
+        {
+          path: 'supplier/suppliers',
+          name: 'supplier-suppliers',
+          component: () => import('@/modules/supplier/views/SupplierList.vue')
+        },
+        {
+          path: 'supplier/product-quotes',
+          name: 'supplier-product-quotes',
+          component: () => import('@/modules/supplier/views/SupplierProductQuoteList.vue')
         },
         // Inventory Module Routes
         {
@@ -87,6 +102,21 @@ const router = createRouter({
           path: 'procurement/purchase-orders',
           name: 'procurement-purchase-orders',
           component: () => import('@/modules/procurement/views/PurchaseOrderList.vue')
+        },
+        {
+          path: 'procurement/purchase-orders/create',
+          name: 'procurement-purchase-orders-create',
+          component: () => import('@/modules/procurement/views/PurchaseOrderCreate.vue')
+        },
+        {
+          path: 'procurement/purchase-orders/:id/edit',
+          name: 'procurement-purchase-orders-edit',
+          component: () => import('@/modules/procurement/views/PurchaseOrderEdit.vue')
+        },
+        {
+          path: 'procurement/purchase-orders/:id',
+          name: 'procurement-purchase-orders-detail',
+          component: () => import('@/modules/procurement/views/PurchaseOrderDetail.vue')
         },
         // Shipping Module Routes
         {

@@ -1,6 +1,16 @@
 import request from '@/utils/request'
-import type { Sku, SkuListParams, CreateSkuParams, Supplier, SupplierListParams, CreateSupplierParams, ProductParent, ProductParentListParams, CreateProductParentParams, ProductCombo, ComboUpsertParams } from '../types'
-import type { AuditLog } from '@/modules/identity/types'
+import type {
+  Sku,
+  SkuListParams,
+  CreateSkuParams,
+  ProductParent,
+  ProductParentListParams,
+  CreateProductParentParams,
+  ProductCombo,
+  ComboUpsertParams,
+  ProductImageUrl
+} from '../types'
+import type { AuditLog } from '@/modules/system/types'
 import type { ApiResponse, PaginatedResponse } from '@/modules/common/types'
 
 /**
@@ -57,6 +67,27 @@ export function deleteSku(id: number) {
 }
 
 /**
+ * 获取SKU图片列表
+ */
+export function getSkuImageList(id: number) {
+  return request<ApiResponse<ProductImageUrl[]>>({
+    url: `/api/v1/products/${id}/images`,
+    method: 'get'
+  })
+}
+
+/**
+ * 保存SKU图片排序
+ */
+export function saveSkuImageOrder(id: number, imageUrls: string[]) {
+  return request<ApiResponse<ProductImageUrl[]>>({
+    url: `/api/v1/products/${id}/images/reorder`,
+    method: 'put',
+    data: { image_urls: imageUrls }
+  })
+}
+
+/**
  * 上传SKU图片 (TODO: 待Go后端实现)
  */
 export function uploadSkuImage(id: number, file: File) {
@@ -108,59 +139,6 @@ export function getSkuAuditLogs(skuId: number, page = 1, pageSize = 10) {
       page,
       page_size: pageSize
     }
-  })
-}
-
-/**
- * 获取供应商列表 (TODO: 待Go后端实现)
- */
-export function getSupplierList(params: SupplierListParams) {
-  return request<ApiResponse<PaginatedResponse<Supplier>>>({
-    url: '/api/v1/suppliers',
-    method: 'get',
-    params
-  })
-}
-
-/**
- * 获取供应商详情 (TODO: 待Go后端实现)
- */
-export function getSupplierDetail(id: number) {
-  return request<ApiResponse<Supplier>>({
-    url: `/api/v1/suppliers/${id}`,
-    method: 'get'
-  })
-}
-
-/**
- * 创建供应商 (TODO: 待Go后端实现)
- */
-export function createSupplier(data: CreateSupplierParams) {
-  return request<ApiResponse<Supplier>>({
-    url: '/api/v1/suppliers',
-    method: 'post',
-    data
-  })
-}
-
-/**
- * 更新供应商 (TODO: 待Go后端实现)
- */
-export function updateSupplier(id: number, data: Partial<CreateSupplierParams>) {
-  return request<ApiResponse<null>>({
-    url: `/api/v1/suppliers/${id}`,
-    method: 'put',
-    data
-  })
-}
-
-/**
- * 删除供应商 (TODO: 待Go后端实现)
- */
-export function deleteSupplier(id: number) {
-  return request<ApiResponse<null>>({
-    url: `/api/v1/suppliers/${id}`,
-    method: 'delete'
   })
 }
 

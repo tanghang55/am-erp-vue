@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import type { User, Role, Permission, MenuItem, AuditLog, AuditLogQueryParams } from '../types'
+import type { User, Role, Permission, MenuItem } from '../types'
 import type { ApiResponse, PaginatedResponse } from '@/modules/common/types'
 
 // ==================== 用户管理接口 ====================
@@ -108,19 +108,6 @@ export function getPermissionList() {
   return request<ApiResponse<Permission[]>>({
     url: '/api/v1/identity/permissions',
     method: 'get'
-  })
-}
-
-// ==================== 审计日志接口 ====================
-
-/**
- * 获取审计日志列表
- */
-export function getAuditLogList(params: AuditLogQueryParams) {
-  return request<ApiResponse<PaginatedResponse<AuditLog>>>({
-    url: '/api/v1/identity/audit-logs',
-    method: 'get',
-    params
   })
 }
 

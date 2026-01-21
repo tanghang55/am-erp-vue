@@ -13,7 +13,7 @@ export function uploadImage(file: File, subDir: string = 'products') {
   formData.append('subDir', subDir)
 
   return request<ApiResponse<UploadResponse>>({
-    url: '/api/upload/image',
+    url: '/api/v1/upload/image',
     method: 'POST',
     data: formData,
     headers: {

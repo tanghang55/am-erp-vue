@@ -175,9 +175,10 @@
                     </div>
                   </template>
                 </el-table-column>
-                <el-table-column :label="text.actions" width="200" fixed="right">
+                <el-table-column :label="text.actions" width="240" fixed="right">
                   <template #default="{ row: child }">
                     <el-button size="small" @click="handleView(child)">{{ text.view }}</el-button>
+                    <el-button size="small" @click="handleImages(child)">{{ text.image }}</el-button>
                     <el-button size="small" type="primary" @click="handleEdit(child)">{{ text.edit }}</el-button>
                     <el-button size="small" type="danger" @click="handleDelete(child)">{{ text.delete }}</el-button>
                   </template>
@@ -315,9 +316,10 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column :label="text.actions" width="200" fixed="right">
+        <el-table-column :label="text.actions" width="240" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="handleView(row)">{{ text.view }}</el-button>
+            <el-button size="small" @click="handleImages(row)">{{ text.image }}</el-button>
             <el-button size="small" type="primary" @click="handleEdit(row)">{{ text.edit }}</el-button>
             <el-button size="small" type="danger" @click="handleDelete(row)">{{ text.delete }}</el-button>
           </template>
@@ -440,11 +442,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { getSkuList, createSku, updateSku, deleteSku, getSkuAuditLogs } from '../api'
 import type { Sku } from '../types'
-import type { AuditLog } from '@/modules/identity/types'
+import type { AuditLog } from '@/modules/system/types'
 import ImageUpload from '@/modules/common/components/ImageUpload.vue'
 import { useAuditLogFormatter } from '@/modules/common/composables/useAuditLogFormatter'
 import { useI18n } from '@/modules/common/composables/useI18n'
@@ -501,6 +504,7 @@ const auditPagination = reactive({
   total: 0
 })
 const { formatAuditSummary } = useAuditLogFormatter()
+const router = useRouter()
 const { t } = useI18n()
 const text = computed(() => ({
   skuManagement: t('product.list.skuManagement'),
@@ -663,6 +667,11 @@ const handleView = (row: Sku) => {
   detailVisible.value = true
   auditPagination.page = 1
   loadAuditLogs(row.id)
+}
+
+// 图片管理
+const handleImages = (row: Sku) => {
+  router.push({ name: 'product-images', params: { id: row.id } })
 }
 
 // 保存

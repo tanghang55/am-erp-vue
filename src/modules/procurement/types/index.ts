@@ -1,6 +1,6 @@
 // Procurement module type definitions
 
-import type { Supplier } from '@/modules/product/types'
+import type { Supplier } from '@/modules/supplier/types'
 import type { Sku } from '@/modules/product/types'
 
 export interface PurchaseOrder {

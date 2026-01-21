@@ -48,13 +48,21 @@ service.interceptors.response.use(
   (response: AxiosResponse) => {
     const res = response.data
 
-    // 如果后端返回的是标准格式 {success: boolean, data: any, message?: string}
-    if (res.success === false) {
+    // 后端返回格式: { code: number, data: any, message: string }
+    // code: 0 表示成功，非0表示失败
+    // 转换为前端期望的格式: { success: boolean, data: any, message: string }
+    const success = res.code === 0
+
+    if (!success) {
       ElMessage.error(res.message || 'Request failed')
       return Promise.reject(new Error(res.message || 'Request failed'))
     }
 
-    return res
+    return {
+      success: true,
+      data: res.data,
+      message: res.message
+    }
   },
   (error) => {
     console.error('Response error:', error)

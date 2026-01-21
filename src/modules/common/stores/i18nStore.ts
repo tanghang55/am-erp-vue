@@ -60,7 +60,10 @@ export const useI18nStore = defineStore('i18n', () => {
     }
   }
 
-  const t = (key: string) => labels.value[key] || key
+  const t = (key: string) => {
+    const normalizedKey = key.trim().toLowerCase()
+    return labels.value[normalizedKey] || labels.value[key] || key
+  }
 
   return {
     labels,

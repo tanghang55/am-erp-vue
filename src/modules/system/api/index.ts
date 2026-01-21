@@ -10,7 +10,11 @@ import type {
   UpdateSystemSettingRequest,
   FieldLabelListResponse,
   CreateFieldLabelRequest,
-  UpdateFieldLabelRequest
+  UpdateFieldLabelRequest,
+  MenuListResponse,
+  CreateMenuRequest,
+  UpdateMenuRequest,
+  UpdateMenuStatusRequest
 } from '../types'
 
 const BASE_URL = '/api/v1/system'
@@ -89,3 +93,48 @@ export const deleteFieldLabel = (id: number) =>
     url: `${BASE_URL}/field-labels/${id}`,
     method: 'delete'
   })
+
+// ==================== Menu Management ====================
+
+export const getMenuList = (params?: {
+  page?: number
+  page_size?: number
+  keyword?: string
+  status?: string
+  is_hidden?: number
+  parent_id?: number
+}) =>
+  request<ApiResponse<MenuListResponse>>({
+    url: '/api/v1/menus',
+    method: 'get',
+    params
+  })
+
+export const createMenu = (data: CreateMenuRequest) =>
+  request<ApiResponse<any>>({
+    url: '/api/v1/menus',
+    method: 'post',
+    data
+  })
+
+export const updateMenu = (id: number, data: UpdateMenuRequest) =>
+  request<ApiResponse<any>>({
+    url: `/api/v1/menus/${id}`,
+    method: 'put',
+    data
+  })
+
+export const updateMenuStatus = (id: number, data: UpdateMenuStatusRequest) =>
+  request<ApiResponse<any>>({
+    url: `/api/v1/menus/${id}/status`,
+    method: 'patch',
+    data
+  })
+
+export const deleteMenu = (id: number) =>
+  request<ApiResponse<any>>({
+    url: `/api/v1/menus/${id}`,
+    method: 'delete'
+  })
+
+export * from './logs'

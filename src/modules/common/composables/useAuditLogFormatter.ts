@@ -1,5 +1,5 @@
 import { watch } from 'vue'
-import type { AuditLog } from '@/modules/identity/types'
+import type { AuditLog } from '@/modules/system/types'
 import { useLocaleStore } from '@/modules/common/stores/localeStore'
 import { useFieldLabelStore } from '@/modules/common/stores/fieldLabelStore'
 

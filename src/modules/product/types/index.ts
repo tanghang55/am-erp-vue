@@ -1,16 +1,6 @@
-// Product模块类型定义
+import type { Supplier } from '@/modules/supplier/types'
 
-export interface Supplier {
-  id: number
-  name: string
-  contact_person?: string
-  phone?: string
-  email?: string
-  address?: string
-  status: 'ACTIVE' | 'DISABLED'
-  created_at: string
-  updated_at: string
-}
+// Product模块类型定义
 
 export interface Sku {
   id: number
@@ -34,6 +24,8 @@ export interface Sku {
   updated_at: string
   supplier?: Supplier
 }
+
+export type ProductImageUrl = string
 
 export interface ProductParent {
   id: number
@@ -84,23 +76,6 @@ export interface CreateSkuParams {
 export interface ComboUpsertParams {
   main_product_id: number
   product_ids: number[]
-}
-
-export interface SupplierListParams {
-  page?: number
-  page_size?: number
-  keyword?: string
-  status?: string
-}
-
-export interface CreateSupplierParams {
-  name: string
-  contact_person?: string
-  phone?: string
-  email?: string
-  address?: string
-  status?: string
-  remark?: string
 }
 
 export interface ProductParentListParams {
