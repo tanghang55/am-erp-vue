@@ -508,14 +508,20 @@ const buildPayload = (): CreatePurchaseOrderParams => ({
 })
 
 const handleSubmit = async () => {
+  // 防止重复提交
+  if (submitting.value) return
   if (!validateForm()) return
+
   submitting.value = true
   try {
     if (props.mode === 'edit' && props.orderId) {
       const payload = buildPayload()
       const res = await updatePurchaseOrder(props.orderId, payload)
-      if (res.data) {
+      if (res.success && res.data) {
+        ElMessage.success('保存成功')
         emit('saved', res.data)
+      } else {
+        ElMessage.error(res.message || '保存失败')
       }
     } else {
       const { payloads, missing } = buildCreatePayloads(
@@ -535,12 +541,31 @@ const handleSubmit = async () => {
         return
       }
       const results = await Promise.all(payloads.map(payload => createPurchaseOrder(payload)))
-      const orders = results.map(res => res.data).filter(Boolean) as PurchaseOrder[]
+      console.log('API results:', results)
+
+      // 检查 success 状态，只获取成功的订单
+      const orders = results
+        .filter(res => {
+          console.log('Checking result:', res, 'success:', res.success, 'data:', res.data)
+          return res.success && res.data
+        })
+        .map(res => res.data) as PurchaseOrder[]
+
+      console.log('Filtered orders:', orders)
+
       if (orders.length > 0) {
+        ElMessage.success(`成功创建 ${orders.length} 个采购单`)
+        console.log('Emitting saved event with orders:', orders)
         emit('saved', orders.length === 1 ? orders[0] : orders)
+      } else {
+        // 检查是否有错误信息
+        const errorRes = results.find(res => !res.success)
+        console.log('No orders found, errorRes:', errorRes)
+        ElMessage.error(errorRes?.message || '创建失败：未返回订单数据')
       }
     }
   } catch (error: any) {
+    console.error('Submit error:', error)
     ElMessage.error(error?.message || '请求失败')
   } finally {
     submitting.value = false

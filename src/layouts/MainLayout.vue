@@ -79,19 +79,30 @@
       </div>
     </el-header>
 
+    <!-- 多标签页 -->
+    <tabs-view />
+
     <!-- 主内容区 -->
     <el-main class="main-content">
-      <router-view />
+      <router-view v-slot="{ Component, route }">
+        <transition name="fade-transform" mode="out-in">
+          <keep-alive :include="cacheList">
+            <component :is="Component" :key="route.path" />
+          </keep-alive>
+        </transition>
+      </router-view>
     </el-main>
   </el-container>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/modules/identity/stores/authStore'
 import { useMenuStore } from '@/modules/identity/stores/menuStore'
 import { useLocaleStore } from '@/modules/common/stores/localeStore'
+import { useTabsStore } from '@/stores/tabsStore'
+import TabsView from '@/components/TabsView.vue'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -99,6 +110,10 @@ const route = useRoute()
 const authStore = useAuthStore()
 const menuStore = useMenuStore()
 const localeStore = useLocaleStore()
+const tabsStore = useTabsStore()
+
+// 需要缓存的组件列表
+const cacheList = ref<string[]>([])
 
 // 当前激活的菜单
 const activeMenu = computed(() => route.path)
@@ -124,13 +139,30 @@ const getMenuTitle = (menu: { title?: string; title_en?: string | null }) => {
 const handleLogout = async () => {
   await authStore.logout()
   menuStore.clearMenus()
+  tabsStore.clearTabs()
   router.push('/login')
 }
 
 // 加载菜单
 onMounted(async () => {
   await menuStore.loadMenus()
+  // 初始化标签页
+  tabsStore.init()
+  // 添加当前路由到标签页
+  if (route.path !== '/login') {
+    tabsStore.addTab(route)
+  }
 })
+
+// 监听路由变化，自动添加标签页
+watch(
+  () => route.path,
+  () => {
+    if (route.path !== '/login') {
+      tabsStore.addTab(route)
+    }
+  }
+)
 </script>
 
 <style scoped>
@@ -244,7 +276,23 @@ onMounted(async () => {
   padding: 24px;
   flex: 1;
   overflow-y: auto;
-  min-height: calc(100vh - 60px);
+  min-height: calc(100vh - 100px);
+}
+
+/* 页面切换动画 */
+.fade-transform-leave-active,
+.fade-transform-enter-active {
+  transition: all 0.2s;
+}
+
+.fade-transform-enter-from {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+
+.fade-transform-leave-to {
+  opacity: 0;
+  transform: translateX(10px);
 }
 
 /* 响应式 */

@@ -396,12 +396,15 @@ const loadList = async () => {
       keyword: searchForm.keyword || undefined
     })
 
-    if (res.data) {
+    if (res.success && res.data) {
       list.value = res.data.data
       pagination.total = res.data.total
+    } else {
+      ElMessage.error(res.message || 'Failed to load warehouse list')
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to load warehouse list:', error)
+    ElMessage.error(error.message || 'Failed to load warehouse list')
   } finally {
     loading.value = false
   }

@@ -118,11 +118,31 @@ const router = createRouter({
           name: 'procurement-purchase-orders-detail',
           component: () => import('@/modules/procurement/views/PurchaseOrderDetail.vue')
         },
+        {
+          path: 'procurement/assembly',
+          name: 'procurement-assembly',
+          component: () => import('@/modules/procurement/views/AssemblyManagement.vue')
+        },
         // Shipping Module Routes
         {
           path: 'shipping/shipments',
           name: 'shipping-shipments',
           component: () => import('@/modules/shipping/views/ShipmentList.vue')
+        },
+        {
+          path: 'shipping/shipments/create',
+          name: 'shipping-shipments-create',
+          component: () => import('@/modules/shipping/views/ShipmentCreate.vue')
+        },
+        {
+          path: 'shipping/shipments/:id',
+          name: 'shipping-shipments-detail',
+          component: () => import('@/modules/shipping/views/ShipmentDetail.vue')
+        },
+        {
+          path: 'shipping/package-specs',
+          name: 'shipping-package-specs',
+          component: () => import('@/modules/shipping/views/PackageSpecList.vue')
         },
         // Finance Module Routes
         {

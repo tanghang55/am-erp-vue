@@ -64,6 +64,10 @@ export interface CreatePurchaseOrderItemParams {
   unit_cost: number
 }
 
+export interface ShipPurchaseOrderParams {
+  warehouse_id: number
+}
+
 export interface ReceivePurchaseOrderParams {
   received_qties: Record<number, number>  // { item_id: qty }
   warehouse_id: number

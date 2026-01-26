@@ -27,6 +27,14 @@ export interface InventoryBalance {
   available_quantity: number
   reserved_quantity: number
   damaged_quantity: number
+  // 库存状态字段
+  purchasing_in_transit: number   // 采购在途库存
+  pending_inspection: number      // 待检库存
+  raw_material: number            // 原料库存(上架库存)
+  pending_shipment: number        // 待出库存
+  logistics_in_transit: number    // 物流在途库存
+  sellable: number                // 可售库存
+  returned: number                // 退货库存
   total_quantity: number
   last_movement_at?: string
   created_at: string
@@ -75,6 +83,15 @@ export type MovementType =
   | 'RETURN_RECEIPT'         // 退货入库
   | 'TRANSFER_OUT'           // 调拨出库
   | 'TRANSFER_IN'            // 调拨入库
+  // 库存状态流转类型
+  | 'PURCHASE_SHIP'          // 供应商发货
+  | 'WAREHOUSE_RECEIVE'      // 到仓收货
+  | 'INSPECTION_PASS'        // 质检通过
+  | 'INSPECTION_FAIL'        // 质检不合格
+  | 'ASSEMBLY_COMPLETE'      // 组装完成
+  | 'LOGISTICS_SHIP'         // 物流发货
+  | 'PLATFORM_RECEIVE'       // 平台上架
+  | 'RETURN_INSPECT'         // 退货质检
 
 // API请求参数类型
 
@@ -186,6 +203,47 @@ export const MOVEMENT_TYPE_CONFIG = {
     label: '调拨入库',
     color: 'success',
     icon: '🔄'
+  },
+  // 库存状态流转类型
+  PURCHASE_SHIP: {
+    label: '供应商发货',
+    color: 'info',
+    icon: '🚚'
+  },
+  WAREHOUSE_RECEIVE: {
+    label: '到仓收货',
+    color: 'success',
+    icon: '🏭'
+  },
+  INSPECTION_PASS: {
+    label: '质检通过',
+    color: 'success',
+    icon: '✅'
+  },
+  INSPECTION_FAIL: {
+    label: '质检不合格',
+    color: 'danger',
+    icon: '❌'
+  },
+  ASSEMBLY_COMPLETE: {
+    label: '组装完成',
+    color: 'primary',
+    icon: '🔧'
+  },
+  LOGISTICS_SHIP: {
+    label: '物流发货',
+    color: 'info',
+    icon: '✈️'
+  },
+  PLATFORM_RECEIVE: {
+    label: '平台上架',
+    color: 'success',
+    icon: '🏪'
+  },
+  RETURN_INSPECT: {
+    label: '退货质检',
+    color: 'warning',
+    icon: '🔍'
   }
 } as const
 

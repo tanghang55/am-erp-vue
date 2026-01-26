@@ -3,6 +3,7 @@ import type {
   PurchaseOrder,
   PurchaseOrderListParams,
   CreatePurchaseOrderParams,
+  ShipPurchaseOrderParams,
   ReceivePurchaseOrderParams
 } from '../types'
 import type { ApiResponse, PaginatedResponse } from '@/modules/common/types'
@@ -73,10 +74,11 @@ export function submitPurchaseOrder(id: number) {
 /**
  * 标记发货
  */
-export function markPurchaseOrderShipped(id: number) {
+export function markPurchaseOrderShipped(id: number, data: ShipPurchaseOrderParams) {
   return request<ApiResponse<PurchaseOrder>>({
     url: `/api/procurement/purchase-orders/${id}/ship`,
-    method: 'post'
+    method: 'post',
+    data
   })
 }
 

@@ -85,6 +85,24 @@
       </div>
     </el-card>
 
+    <el-dialog v-model="shipDialogVisible" :title="labels.shipTitle" width="400px">
+      <el-form :model="shipForm" label-width="120px">
+        <el-form-item :label="labels.shipWarehouse" required>
+          <WarehouseSelector
+            v-model="shipForm.warehouse_id"
+            :placeholder="labels.shipWarehousePlaceholder"
+            style="width: 100%"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="shipDialogVisible = false">{{ labels.cancel }}</el-button>
+        <el-button type="primary" :loading="submitting" @click="handleConfirmShip">
+          {{ labels.confirmShip }}
+        </el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="receiveDialogVisible" :title="labels.receiveTitle" width="600px">
       <el-form :model="receiveForm" label-width="120px">
         <el-form-item :label="labels.receiveWarehouse" required>
@@ -146,6 +164,13 @@ const orderId = Number(route.params.id)
 const order = ref<PurchaseOrder | null>(null)
 const loading = ref(false)
 
+const shipDialogVisible = ref(false)
+const shipForm = reactive<{
+  warehouse_id: number | null
+}>({
+  warehouse_id: null
+})
+
 const receiveDialogVisible = ref(false)
 const receiveForm = reactive<{
   warehouse_id: number | null
@@ -178,6 +203,11 @@ const labels = computed(() => {
       markShipped: 'Mark Shipped',
       receive: 'Receive',
       close: 'Close',
+      shipTitle: 'Mark Shipped',
+      shipWarehouse: 'Destination Warehouse',
+      shipWarehousePlaceholder: 'Select destination warehouse',
+      confirmShip: 'Confirm Ship',
+      selectWarehouse: 'Please select warehouse',
       receiveTitle: 'Receive',
       receiveWarehouse: 'Warehouse',
       receiveWarehousePlaceholder: 'Select warehouse',
@@ -187,6 +217,7 @@ const labels = computed(() => {
       submitConfirm: 'Submit this purchase order? It cannot be edited after submission.',
       markShippedConfirm: 'Confirm the purchase order is shipped?',
       closeConfirm: 'Close this purchase order?',
+      shipSuccess: 'Shipped successfully.',
       receiveSuccess: 'Received successfully.',
       actionSuccess: 'Operation succeeded',
       actionFailed: 'Operation failed',
@@ -213,6 +244,10 @@ const labels = computed(() => {
     markShipped: '标记发货',
     receive: '到货验收',
     close: '关闭',
+    shipTitle: '标记发货',
+    shipWarehouse: '目标仓库',
+    shipWarehousePlaceholder: '选择目标仓库',
+    confirmShip: '确认发货',
     receiveTitle: '到货验收',
     receiveWarehouse: '入库仓库',
     receiveWarehousePlaceholder: '选择入库仓库',
@@ -222,10 +257,11 @@ const labels = computed(() => {
     submitConfirm: '确认提交该采购单？提交后将无法编辑',
     markShippedConfirm: '确认该采购单已发货？',
     closeConfirm: '确认关闭该采购单？',
+    shipSuccess: '发货成功',
     receiveSuccess: '验收完成',
     actionSuccess: '操作成功',
     actionFailed: '操作失败',
-    selectWarehouse: '请选择入库仓库'
+    selectWarehouse: '请选择仓库'
   }
 })
 
@@ -297,18 +333,28 @@ const handleSubmit = async () => {
   }
 }
 
-const handleShip = async () => {
+const handleShip = () => {
+  shipForm.warehouse_id = null
+  shipDialogVisible.value = true
+}
+
+const handleConfirmShip = async () => {
+  if (!shipForm.warehouse_id) {
+    ElMessage.error(labels.value.selectWarehouse)
+    return
+  }
+  submitting.value = true
   try {
-    await ElMessageBox.confirm(labels.value.markShippedConfirm, labels.value.title, {
-      type: 'warning'
+    await markPurchaseOrderShipped(orderId, {
+      warehouse_id: shipForm.warehouse_id
     })
-    await markPurchaseOrderShipped(orderId)
-    ElMessage.success(labels.value.actionSuccess)
+    ElMessage.success(labels.value.shipSuccess)
+    shipDialogVisible.value = false
     loadDetail()
   } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || labels.value.actionFailed)
-    }
+    ElMessage.error(error.message || labels.value.actionFailed)
+  } finally {
+    submitting.value = false
   }
 }
 

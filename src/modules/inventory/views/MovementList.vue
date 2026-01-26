@@ -410,7 +410,15 @@ const movementTypeLabels = computed(() => {
       DAMAGE_WRITE_OFF: 'Damage Write-off',
       RETURN_RECEIPT: 'Return Receipt',
       TRANSFER_OUT: 'Transfer Out',
-      TRANSFER_IN: 'Transfer In'
+      TRANSFER_IN: 'Transfer In',
+      PURCHASE_SHIP: 'Purchase Ship',
+      WAREHOUSE_RECEIVE: 'Warehouse Receive',
+      INSPECTION_PASS: 'Inspection Pass',
+      INSPECTION_FAIL: 'Inspection Fail',
+      ASSEMBLY_COMPLETE: 'Assembly Complete',
+      LOGISTICS_SHIP: 'Logistics Ship',
+      PLATFORM_RECEIVE: 'Platform Receive',
+      RETURN_INSPECT: 'Return Inspect'
     }
   }
   return {
@@ -421,7 +429,15 @@ const movementTypeLabels = computed(() => {
     DAMAGE_WRITE_OFF: '损坏报损',
     RETURN_RECEIPT: '退货入库',
     TRANSFER_OUT: '调拨出库',
-    TRANSFER_IN: '调拨入库'
+    TRANSFER_IN: '调拨入库',
+    PURCHASE_SHIP: '供应商发货',
+    WAREHOUSE_RECEIVE: '到仓收货',
+    INSPECTION_PASS: '质检通过',
+    INSPECTION_FAIL: '质检不合格',
+    ASSEMBLY_COMPLETE: '组装完成',
+    LOGISTICS_SHIP: '物流发货',
+    PLATFORM_RECEIVE: '平台上架',
+    RETURN_INSPECT: '退货质检'
   }
 })
 

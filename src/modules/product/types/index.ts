@@ -54,6 +54,8 @@ export interface SkuListParams {
   status?: string
   supplier_id?: number
   keyword?: string
+  warehouse_id?: number       // 仓库ID，如果指定则只返回该仓库有待出库存的产品
+  exclude_combo_child?: boolean  // 排除组合子产品
 }
 
 export interface CreateSkuParams {

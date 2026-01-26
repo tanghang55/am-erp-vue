@@ -36,21 +36,6 @@
             </el-option>
           </el-select>
         </el-form-item>
-        <el-form-item :label="labels.marketplace">
-          <el-select
-            v-model="searchForm.marketplace"
-            :placeholder="labels.allMarketplaces"
-            clearable
-            style="width: 150px"
-          >
-            <el-option
-              v-for="marketplace in MARKETPLACES"
-              :key="marketplace"
-              :label="marketplace"
-              :value="marketplace"
-            />
-          </el-select>
-        </el-form-item>
         <el-form-item :label="labels.warehouse">
           <warehouse-selector
             v-model="searchForm.warehouse_id"
@@ -109,7 +94,6 @@
           </template>
         </el-table-column>
         <el-table-column prop="order_number" :label="labels.orderNumber" width="150" show-overflow-tooltip />
-        <el-table-column prop="marketplace" :label="labels.marketplace" width="100" align="center" />
         <el-table-column :label="labels.warehouse" width="150">
           <template #default="{ row }">
             <span v-if="row.warehouse">{{ row.warehouse.name }}</span>
@@ -122,17 +106,6 @@
               <div v-if="row.carrier">{{ labels.carrier }}: {{ row.carrier }}</div>
               <div v-if="row.tracking_number">{{ labels.trackingNumber }}: {{ row.tracking_number }}</div>
               <div v-if="!row.carrier && !row.tracking_number" style="color: #909399">-</div>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column :label="labels.recipient" width="180">
-          <template #default="{ row }">
-            <div style="font-size: 12px">
-              <div v-if="row.recipient_name">{{ row.recipient_name }}</div>
-              <div v-if="row.recipient_phone" style="color: #909399">
-                {{ row.recipient_phone }}
-              </div>
-              <div v-if="!row.recipient_name" style="color: #909399">-</div>
             </div>
           </template>
         </el-table-column>
@@ -203,6 +176,32 @@
         style="margin-top: 20px; justify-content: flex-end"
       />
     </el-card>
+
+    <!-- 标记发货对话框 -->
+    <el-dialog v-model="shipDialogVisible" :title="labels.markShipped" width="500px">
+      <el-form :model="shipForm" label-width="120px">
+        <el-form-item :label="labels.carrier">
+          <el-input v-model="shipForm.carrier" :placeholder="labels.carrierPlaceholder" />
+        </el-form-item>
+        <el-form-item :label="labels.trackingNumber">
+          <el-input v-model="shipForm.tracking_number" :placeholder="labels.trackingPlaceholder" />
+        </el-form-item>
+        <el-form-item :label="labels.shippingCost">
+          <el-input-number
+            v-model="shipForm.shipping_cost"
+            :min="0"
+            :precision="2"
+            style="width: 100%"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="shipDialogVisible = false">{{ labels.cancelText }}</el-button>
+        <el-button type="primary" :loading="submitting" @click="handleConfirmShip">
+          {{ labels.confirmText }}
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -218,7 +217,8 @@ import {
   cancelShipment
 } from '../api'
 import type { Shipment, ShipmentStatus } from '../types'
-import { SHIPMENT_STATUS_CONFIG, MARKETPLACES } from '../types'
+import { SHIPMENT_STATUS_CONFIG } from '../types'
+import type { MarkShippedParams } from '../api'
 import WarehouseSelector from '@/modules/inventory/components/WarehouseSelector.vue'
 import { useLocaleStore } from '@/modules/common/stores/localeStore'
 
@@ -233,8 +233,6 @@ const labels = computed(() => {
       export: 'Export Excel',
       status: 'Status',
       allStatus: 'All Status',
-      marketplace: 'Marketplace',
-      allMarketplaces: 'All Marketplaces',
       warehouse: 'Warehouse',
       allWarehouses: 'All Warehouses',
       keyword: 'Keyword',
@@ -247,7 +245,9 @@ const labels = computed(() => {
       logistics: 'Logistics',
       carrier: 'Carrier',
       trackingNumber: 'Tracking',
-      recipient: 'Recipient',
+      carrierPlaceholder: 'Enter carrier name',
+      trackingPlaceholder: 'Enter tracking number',
+      shippingCost: 'Shipping Cost',
       skuCount: 'SKU Count',
       timeline: 'Timeline',
       shippedAt: 'Shipped',
@@ -281,8 +281,6 @@ const labels = computed(() => {
     export: '导出Excel',
     status: '状态',
     allStatus: '全部状态',
-    marketplace: '站点',
-    allMarketplaces: '全部站点',
     warehouse: '仓库',
     allWarehouses: '全部仓库',
     keyword: '关键词',
@@ -295,7 +293,9 @@ const labels = computed(() => {
     logistics: '物流信息',
     carrier: '承运商',
     trackingNumber: '追踪号',
-    recipient: '收件人',
+    carrierPlaceholder: '输入承运商名称',
+    trackingPlaceholder: '输入物流追踪号',
+    shippingCost: '运费',
     skuCount: 'SKU数量',
     timeline: '时间节点',
     shippedAt: '发货',
@@ -355,7 +355,6 @@ const loading = ref(false)
 const searchForm = reactive({
   status: '' as ShipmentStatus | '',
   warehouse_id: null as number | null,
-  marketplace: '',
   keyword: ''
 })
 
@@ -368,6 +367,16 @@ const pagination = reactive({
 
 // 导出状态
 const exporting = ref(false)
+
+// 标记发货对话框
+const shipDialogVisible = ref(false)
+const currentShipment = ref<Shipment | null>(null)
+const shipForm = reactive({
+  carrier: '',
+  tracking_number: '',
+  shipping_cost: 0
+})
+const submitting = ref(false)
 
 // 格式化日期
 const formatDate = (dateTime: string) => {
@@ -384,7 +393,6 @@ const loadList = async () => {
       page_size: pagination.page_size,
       status: searchForm.status || undefined,
       warehouse_id: searchForm.warehouse_id || undefined,
-      marketplace: searchForm.marketplace || undefined,
       keyword: searchForm.keyword || undefined
     })
 
@@ -411,7 +419,6 @@ const handleReset = () => {
   Object.assign(searchForm, {
     status: '',
     warehouse_id: null,
-    marketplace: '',
     keyword: ''
   })
   handleSearch()
@@ -445,22 +452,34 @@ const handleEdit = (row: Shipment) => {
 }
 
 // 标记发货
-const handleMarkShipped = async (row: Shipment) => {
-  try {
-    await ElMessageBox.confirm(labels.value.markShippedConfirm, labels.value.confirmTitle, {
-      confirmButtonText: labels.value.confirmText,
-      cancelButtonText: labels.value.cancelText,
-      type: 'warning'
-    })
+const handleMarkShipped = (row: Shipment) => {
+  currentShipment.value = row
+  shipForm.carrier = row.carrier || ''
+  shipForm.tracking_number = row.tracking_number || ''
+  shipForm.shipping_cost = row.shipping_cost || 0
+  shipDialogVisible.value = true
+}
 
-    await markShipped(row.id)
+// 确认标记发货
+const handleConfirmShip = async () => {
+  if (!currentShipment.value) return
+
+  submitting.value = true
+  try {
+    const params: MarkShippedParams = {}
+    if (shipForm.carrier) params.carrier = shipForm.carrier
+    if (shipForm.tracking_number) params.tracking_number = shipForm.tracking_number
+    if (shipForm.shipping_cost) params.shipping_cost = shipForm.shipping_cost
+
+    await markShipped(currentShipment.value.id, params)
     ElMessage.success(labels.value.markedShipped)
+    shipDialogVisible.value = false
     loadList()
   } catch (error: any) {
-    if (error !== 'cancel') {
-      console.error('Mark shipped failed:', error)
-      ElMessage.error(error.message || labels.value.actionFail)
-    }
+    console.error('Mark shipped failed:', error)
+    ElMessage.error(error.message || labels.value.actionFail)
+  } finally {
+    submitting.value = false
   }
 }
 

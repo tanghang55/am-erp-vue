@@ -382,7 +382,15 @@ const movementTypeLabels = computed(() => {
       DAMAGE_WRITE_OFF: 'Damage Write-off',
       RETURN_RECEIPT: 'Return Receipt',
       TRANSFER_OUT: 'Transfer Out',
-      TRANSFER_IN: 'Transfer In'
+      TRANSFER_IN: 'Transfer In',
+      PURCHASE_SHIP: 'Purchase Ship',
+      WAREHOUSE_RECEIVE: 'Warehouse Receive',
+      INSPECTION_PASS: 'Inspection Pass',
+      INSPECTION_FAIL: 'Inspection Fail',
+      ASSEMBLY_COMPLETE: 'Assembly Complete',
+      LOGISTICS_SHIP: 'Logistics Ship',
+      PLATFORM_RECEIVE: 'Platform Receive',
+      RETURN_INSPECT: 'Return Inspect'
     }
   }
   return {
@@ -393,7 +401,15 @@ const movementTypeLabels = computed(() => {
     DAMAGE_WRITE_OFF: '损坏报损',
     RETURN_RECEIPT: '退货入库',
     TRANSFER_OUT: '调拨出库',
-    TRANSFER_IN: '调拨入库'
+    TRANSFER_IN: '调拨入库',
+    PURCHASE_SHIP: '供应商发货',
+    WAREHOUSE_RECEIVE: '到仓收货',
+    INSPECTION_PASS: '质检通过',
+    INSPECTION_FAIL: '质检不合格',
+    ASSEMBLY_COMPLETE: '组装完成',
+    LOGISTICS_SHIP: '物流发货',
+    PLATFORM_RECEIVE: '平台上架',
+    RETURN_INSPECT: '退货质检'
   }
 })
 
@@ -473,7 +489,7 @@ const transferRules = computed<FormRules>(() => ({
 // 获取类型描述
 const getTypeDescription = (type: MovementType) => {
   if (localeStore.isEnglish) {
-    const descriptions: Record<MovementType, string> = {
+    const descriptions: Record<string, string> = {
       PURCHASE_RECEIPT: 'Inbound from supplier, increases stock',
       SALES_SHIPMENT: 'Outbound to customer, decreases stock',
       STOCK_TAKE_ADJUSTMENT: 'Stock take adjustment, +/- stock',
@@ -481,11 +497,19 @@ const getTypeDescription = (type: MovementType) => {
       DAMAGE_WRITE_OFF: 'Write off damaged items',
       RETURN_RECEIPT: 'Customer return, increases stock',
       TRANSFER_OUT: 'Transfer out from source warehouse',
-      TRANSFER_IN: 'Transfer in to target warehouse'
+      TRANSFER_IN: 'Transfer in to target warehouse',
+      PURCHASE_SHIP: 'Supplier shipped, add to in-transit',
+      WAREHOUSE_RECEIVE: 'Arrived at warehouse, pending inspection',
+      INSPECTION_PASS: 'Inspection passed, to raw material',
+      INSPECTION_FAIL: 'Inspection failed, to damaged',
+      ASSEMBLY_COMPLETE: 'Assembly done, pending shipment',
+      LOGISTICS_SHIP: 'Shipped via logistics',
+      PLATFORM_RECEIVE: 'Listed on platform, sellable',
+      RETURN_INSPECT: 'Inspect returned items'
     }
     return descriptions[type] || ''
   }
-  const descriptions: Record<MovementType, string> = {
+  const descriptions: Record<string, string> = {
     PURCHASE_RECEIPT: '从供应商采购入库,增加库存',
     SALES_SHIPMENT: '销售出库给客户,减少库存',
     STOCK_TAKE_ADJUSTMENT: '盘点后调整库存,可增可减',
@@ -493,7 +517,15 @@ const getTypeDescription = (type: MovementType) => {
     DAMAGE_WRITE_OFF: '损坏产品报损,减少库存',
     RETURN_RECEIPT: '客户退货入库,增加库存',
     TRANSFER_OUT: '从源仓库调拨出库',
-    TRANSFER_IN: '调拨入目标仓库'
+    TRANSFER_IN: '调拨入目标仓库',
+    PURCHASE_SHIP: '供应商发货,增加采购在途',
+    WAREHOUSE_RECEIVE: '货物到仓,转入待检库存',
+    INSPECTION_PASS: '质检通过,转入原料库存',
+    INSPECTION_FAIL: '质检不合格,转入损坏库存',
+    ASSEMBLY_COMPLETE: '组装完成,转入待出库存',
+    LOGISTICS_SHIP: '物流发货,转入物流在途',
+    PLATFORM_RECEIVE: '平台上架,转入可售库存',
+    RETURN_INSPECT: '退货质检,分流至待检或损坏'
   }
   return descriptions[type] || ''
 }

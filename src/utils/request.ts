@@ -2,8 +2,9 @@ import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse 
 import { ElMessage } from 'element-plus'
 
 // 创建axios实例
+// 开发环境使用 vite 代理，生产环境使用环境变量配置的后端地址
 const service: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json'
@@ -50,7 +51,6 @@ service.interceptors.response.use(
 
     // 后端返回格式: { code: number, data: any, message: string }
     // code: 0 表示成功，非0表示失败
-    // 转换为前端期望的格式: { success: boolean, data: any, message: string }
     const success = res.code === 0
 
     if (!success) {
@@ -58,6 +58,7 @@ service.interceptors.response.use(
       return Promise.reject(new Error(res.message || 'Request failed'))
     }
 
+    // 转换为统一的前端格式: { success: boolean, data: any, message: string }
     return {
       success: true,
       data: res.data,

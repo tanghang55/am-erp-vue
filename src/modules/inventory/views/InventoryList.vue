@@ -42,18 +42,17 @@
       </el-form>
 
       <!-- 数据表格 -->
-      <el-table :data="list" v-loading="loading" border stripe>
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column :label="labels.skuInfo" min-width="200">
+      <el-table :data="list" v-loading="loading" border stripe row-key="id" size="small">
+        <el-table-column prop="id" label="ID" width="60" />
+        <el-table-column :label="labels.skuInfo" min-width="180">
           <template #default="{ row }">
             <div v-if="row.sku">
               <div style="font-weight: bold">{{ row.sku.seller_sku }}</div>
-              <div style="font-size: 12px; color: #909399">ASIN: {{ row.sku.asin }}</div>
               <div style="font-size: 12px; color: #606266">{{ row.sku.title }}</div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column :label="labels.warehouse" width="150">
+        <el-table-column :label="labels.warehouse" width="120">
           <template #default="{ row }">
             <div v-if="row.warehouse">
               <div style="font-weight: bold">{{ row.warehouse.code }}</div>
@@ -61,44 +60,75 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column :label="labels.availableQty" width="140" align="center">
+        <!-- 库存状态列 -->
+        <el-table-column :label="localeStore.isEnglish ? 'Purchasing' : '采购在途'" width="75" align="center">
           <template #default="{ row }">
-            <stock-level-indicator :quantity="row.available_quantity" />
+            <span :class="['stock-cell', { 'has-value': row.purchasing_in_transit > 0 }]">
+              {{ row.purchasing_in_transit || 0 }}
+            </span>
           </template>
         </el-table-column>
-        <el-table-column prop="reserved_quantity" :label="labels.reserved" width="80" align="center">
+        <el-table-column :label="localeStore.isEnglish ? 'Pending QC' : '待检'" width="65" align="center">
           <template #default="{ row }">
-            <el-tag v-if="row.reserved_quantity > 0" type="warning" size="small">
-              {{ row.reserved_quantity }}
-            </el-tag>
-            <span v-else style="color: #909399">0</span>
+            <span :class="['stock-cell', { 'has-value': row.pending_inspection > 0 }]">
+              {{ row.pending_inspection || 0 }}
+            </span>
           </template>
         </el-table-column>
-        <el-table-column prop="damaged_quantity" :label="labels.damaged" width="80" align="center">
+        <el-table-column :label="localeStore.isEnglish ? 'Raw' : '原料'" width="65" align="center">
           <template #default="{ row }">
-            <el-tag v-if="row.damaged_quantity > 0" type="danger" size="small">
-              {{ row.damaged_quantity }}
-            </el-tag>
-            <span v-else style="color: #909399">0</span>
+            <span :class="['stock-cell', { 'has-value': row.raw_material > 0 }]">
+              {{ row.raw_material || 0 }}
+            </span>
           </template>
         </el-table-column>
-        <el-table-column prop="total_quantity" :label="labels.total" width="100" align="center">
+        <el-table-column :label="localeStore.isEnglish ? 'Pending' : '待出'" width="65" align="center">
           <template #default="{ row }">
-            <el-tag type="info">{{ row.total_quantity }}</el-tag>
+            <span :class="['stock-cell', { 'has-value': row.pending_shipment > 0 }]">
+              {{ row.pending_shipment || 0 }}
+            </span>
           </template>
         </el-table-column>
-        <el-table-column prop="last_movement_at" :label="labels.lastMovement" width="160">
+        <el-table-column :label="localeStore.isEnglish ? 'Logistics' : '物流在途'" width="75" align="center">
           <template #default="{ row }">
-            {{ row.last_movement_at || '-' }}
+            <span :class="['stock-cell', { 'has-value': row.logistics_in_transit > 0 }]">
+              {{ row.logistics_in_transit || 0 }}
+            </span>
           </template>
         </el-table-column>
-        <el-table-column :label="labels.actions" width="200" fixed="right">
+        <el-table-column :label="localeStore.isEnglish ? 'Sellable' : '可售'" width="65" align="center">
           <template #default="{ row }">
-            <el-button size="small" @click="handleView(row)">{{ labels.view }}</el-button>
-            <el-button size="small" type="primary" @click="handleViewSkuBalances(row)">
+            <span :class="['stock-cell', 'sellable', { 'has-value': row.sellable > 0 }]">
+              {{ row.sellable || 0 }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column :label="localeStore.isEnglish ? 'Returned' : '退货'" width="65" align="center">
+          <template #default="{ row }">
+            <span :class="['stock-cell', 'returned', { 'has-value': row.returned > 0 }]">
+              {{ row.returned || 0 }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column :label="localeStore.isEnglish ? 'Damaged' : '损坏'" width="65" align="center">
+          <template #default="{ row }">
+            <span :class="['stock-cell', 'damaged', { 'has-value': row.damaged_quantity > 0 }]">
+              {{ row.damaged_quantity || 0 }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="total_quantity" :label="labels.total" width="70" align="center">
+          <template #default="{ row }">
+            <el-tag type="info" size="small">{{ row.total_quantity }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column :label="labels.actions" width="160" fixed="right">
+          <template #default="{ row }">
+            <el-button size="small" link type="primary" @click="handleView(row)">{{ labels.view }}</el-button>
+            <el-button size="small" link type="primary" @click="handleViewSkuBalances(row)">
               {{ labels.crossWarehouse }}
             </el-button>
-            <el-button size="small" @click="handleViewMovements(row)">{{ labels.movements }}</el-button>
+            <el-button size="small" link type="primary" @click="handleViewMovements(row)">{{ labels.movements }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -117,7 +147,7 @@
     </el-card>
 
     <!-- 查看详情对话框 -->
-    <el-dialog v-model="detailVisible" :title="labels.detailTitle" width="600px">
+    <el-dialog v-model="detailVisible" :title="labels.detailTitle" width="800px">
       <el-descriptions :column="2" border v-if="currentBalance">
         <el-descriptions-item :label="labels.sku" :span="2">
           <div v-if="currentBalance.sku">
@@ -132,6 +162,59 @@
             {{ currentBalance.warehouse.code }} - {{ currentBalance.warehouse.name }}
           </div>
         </el-descriptions-item>
+      </el-descriptions>
+
+      <!-- 库存状态明细 -->
+      <div style="margin-top: 20px">
+        <h4 style="margin-bottom: 12px">{{ localeStore.isEnglish ? 'Stock Status' : '库存状态明细' }}</h4>
+        <el-row :gutter="12" v-if="currentBalance">
+          <el-col :span="6">
+            <el-statistic :title="localeStore.isEnglish ? 'Purchasing In Transit' : '采购在途'" :value="currentBalance.purchasing_in_transit || 0">
+              <template #prefix><span style="color: #409EFF">🚚</span></template>
+            </el-statistic>
+          </el-col>
+          <el-col :span="6">
+            <el-statistic :title="localeStore.isEnglish ? 'Pending Inspection' : '待检库存'" :value="currentBalance.pending_inspection || 0">
+              <template #prefix><span style="color: #E6A23C">🔍</span></template>
+            </el-statistic>
+          </el-col>
+          <el-col :span="6">
+            <el-statistic :title="localeStore.isEnglish ? 'Raw Material' : '原料库存'" :value="currentBalance.raw_material || 0">
+              <template #prefix><span style="color: #67C23A">📦</span></template>
+            </el-statistic>
+          </el-col>
+          <el-col :span="6">
+            <el-statistic :title="localeStore.isEnglish ? 'Pending Shipment' : '待出库存'" :value="currentBalance.pending_shipment || 0">
+              <template #prefix><span style="color: #909399">📤</span></template>
+            </el-statistic>
+          </el-col>
+        </el-row>
+        <el-row :gutter="12" style="margin-top: 16px" v-if="currentBalance">
+          <el-col :span="6">
+            <el-statistic :title="localeStore.isEnglish ? 'Logistics In Transit' : '物流在途'" :value="currentBalance.logistics_in_transit || 0">
+              <template #prefix><span style="color: #409EFF">✈️</span></template>
+            </el-statistic>
+          </el-col>
+          <el-col :span="6">
+            <el-statistic :title="localeStore.isEnglish ? 'Sellable' : '可售库存'" :value="currentBalance.sellable || 0">
+              <template #prefix><span style="color: #67C23A">🏪</span></template>
+            </el-statistic>
+          </el-col>
+          <el-col :span="6">
+            <el-statistic :title="localeStore.isEnglish ? 'Returned' : '退货库存'" :value="currentBalance.returned || 0">
+              <template #prefix><span style="color: #E6A23C">↩️</span></template>
+            </el-statistic>
+          </el-col>
+          <el-col :span="6">
+            <el-statistic :title="localeStore.isEnglish ? 'Damaged' : '损坏库存'" :value="currentBalance.damaged_quantity || 0">
+              <template #prefix><span style="color: #F56C6C">💥</span></template>
+            </el-statistic>
+          </el-col>
+        </el-row>
+      </div>
+
+      <!-- 汇总信息 -->
+      <el-descriptions :column="2" border style="margin-top: 20px" v-if="currentBalance">
         <el-descriptions-item :label="labels.availableQty">
           <stock-level-indicator :quantity="currentBalance.available_quantity" />
         </el-descriptions-item>
@@ -141,23 +224,11 @@
           </el-tag>
           <span v-else>0</span>
         </el-descriptions-item>
-        <el-descriptions-item :label="labels.damagedQty">
-          <el-tag v-if="currentBalance.damaged_quantity > 0" type="danger">
-            {{ currentBalance.damaged_quantity }}
-          </el-tag>
-          <span v-else>0</span>
-        </el-descriptions-item>
         <el-descriptions-item :label="labels.totalQty">
           <el-tag type="info" size="large">{{ currentBalance.total_quantity }}</el-tag>
         </el-descriptions-item>
-        <el-descriptions-item :label="labels.lastMovementAt" :span="2">
+        <el-descriptions-item :label="labels.lastMovementAt">
           {{ currentBalance.last_movement_at || '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item :label="labels.createdAt" :span="2">
-          {{ currentBalance.created_at }}
-        </el-descriptions-item>
-        <el-descriptions-item :label="labels.updatedAt" :span="2">
-          {{ currentBalance.updated_at }}
         </el-descriptions-item>
       </el-descriptions>
     </el-dialog>
@@ -405,7 +476,16 @@ const handleViewSkuBalances = async (row: InventoryBalance) => {
   try {
     const res = await getSkuBalances(row.sku_id)
     if (res.data) {
-      currentSkuBalances.value = res.data
+      // Convert InventoryBalance to expected format
+      currentSkuBalances.value = res.data.data.map(balance => ({
+        warehouse_code: balance.warehouse?.code || '',
+        warehouse_name: balance.warehouse?.name || '',
+        available_quantity: balance.available_quantity,
+        reserved_quantity: balance.reserved_quantity,
+        damaged_quantity: balance.damaged_quantity,
+        total_quantity: balance.total_quantity,
+        last_movement_at: balance.last_movement_at
+      }))
       skuBalancesVisible.value = true
     }
   } catch (error) {
@@ -481,5 +561,28 @@ onMounted(() => {
 
 .search-form {
   margin-bottom: 20px;
+}
+
+/* 库存数量单元格样式 */
+.stock-cell {
+  color: #c0c4cc;
+  font-weight: 500;
+}
+
+.stock-cell.has-value {
+  color: #303133;
+  font-weight: 600;
+}
+
+.stock-cell.sellable.has-value {
+  color: #67c23a;
+}
+
+.stock-cell.returned.has-value {
+  color: #e6a23c;
+}
+
+.stock-cell.damaged.has-value {
+  color: #f56c6c;
 }
 </style>

@@ -173,6 +173,25 @@
       />
     </el-card>
 
+    <!-- 标记发货对话框 -->
+    <el-dialog v-model="shipDialogVisible" :title="labels.shipTitle" width="400px">
+      <el-form :model="shipForm" label-width="120px">
+        <el-form-item :label="labels.shipWarehouse" required>
+          <warehouse-selector
+            v-model="shipForm.warehouse_id"
+            :placeholder="labels.shipWarehousePlaceholder"
+            style="width: 100%"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="shipDialogVisible = false">{{ labels.cancel }}</el-button>
+        <el-button type="primary" :loading="submitting" @click="handleConfirmShip">
+          {{ labels.confirmShip }}
+        </el-button>
+      </template>
+    </el-dialog>
+
     <!-- 到货验收对话框 -->
     <el-dialog v-model="receiveDialogVisible" :title="labels.receiveTitle" width="600px">
       <el-form :model="receiveForm" label-width="120px">
@@ -266,6 +285,10 @@ const labels = computed(() => {
       markShipped: 'Mark Shipped',
       receive: 'Receive',
       delete: 'Delete',
+      shipTitle: 'Mark Shipped',
+      shipWarehouse: 'Destination Warehouse',
+      shipWarehousePlaceholder: 'Select destination warehouse',
+      confirmShip: 'Confirm Ship',
       receiveTitle: 'Receive',
       receiveWarehouse: 'Warehouse',
       receiveWarehousePlaceholder: 'Select warehouse',
@@ -280,7 +303,7 @@ const labels = computed(() => {
       confirmText: 'Confirm',
       cancelText: 'Cancel',
       submitted: 'Purchase order submitted',
-      markedShipped: 'Marked as shipped',
+      shipSuccess: 'Marked as shipped',
       receiveSuccess: 'Received successfully. Inventory updated.',
       deleteSuccess: 'Deleted',
       selectWarehouse: 'Please select warehouse',
@@ -321,6 +344,10 @@ const labels = computed(() => {
     markShipped: '标记发货',
     receive: '到货验收',
     delete: '删除',
+    shipTitle: '标记发货',
+    shipWarehouse: '目标仓库',
+    shipWarehousePlaceholder: '选择目标仓库',
+    confirmShip: '确认发货',
     receiveTitle: '到货验收',
     receiveWarehouse: '入库仓库',
     receiveWarehousePlaceholder: '选择入库仓库',
@@ -335,10 +362,10 @@ const labels = computed(() => {
     confirmText: '确定',
     cancelText: '取消',
     submitted: '采购单已提交',
-    markedShipped: '已标记为发货',
+    shipSuccess: '发货成功',
     receiveSuccess: '验收完成，库存已自动入库',
     deleteSuccess: '删除成功',
-    selectWarehouse: '请选择入库仓库',
+    selectWarehouse: '请选择仓库',
     loadFail: '加载采购单列表失败',
     submitFail: '提交失败',
     markShippedFail: '操作失败',
@@ -386,6 +413,14 @@ const pagination = reactive({
 
 // 导出状态
 const exporting = ref(false)
+
+// 标记发货对话框
+const shipDialogVisible = ref(false)
+const shipForm = reactive<{
+  warehouse_id: number | null
+}>({
+  warehouse_id: null
+})
 
 // 到货验收对话框
 const receiveDialogVisible = ref(false)
@@ -491,22 +526,34 @@ const handleSubmit = async (row: PurchaseOrder) => {
 }
 
 // 标记发货
-const handleMarkShipped = async (row: PurchaseOrder) => {
-  try {
-    await ElMessageBox.confirm(labels.value.markShippedConfirm, labels.value.confirmTitle, {
-      confirmButtonText: labels.value.confirmText,
-      cancelButtonText: labels.value.cancelText,
-      type: 'warning'
-    })
+const handleMarkShipped = (row: PurchaseOrder) => {
+  currentPO.value = row
+  shipForm.warehouse_id = null
+  shipDialogVisible.value = true
+}
 
-    await markPurchaseOrderShipped(row.id)
-    ElMessage.success(labels.value.markedShipped)
+// 确认发货
+const handleConfirmShip = async () => {
+  if (!shipForm.warehouse_id) {
+    ElMessage.error(labels.value.selectWarehouse)
+    return
+  }
+
+  if (!currentPO.value) return
+
+  submitting.value = true
+  try {
+    await markPurchaseOrderShipped(currentPO.value.id, {
+      warehouse_id: shipForm.warehouse_id
+    })
+    ElMessage.success(labels.value.shipSuccess)
+    shipDialogVisible.value = false
     loadList()
   } catch (error: any) {
-    if (error !== 'cancel') {
-      console.error('Mark shipped failed:', error)
-      ElMessage.error(error.message || labels.value.markShippedFail)
-    }
+    console.error('Mark shipped failed:', error)
+    ElMessage.error(error.message || labels.value.markShippedFail)
+  } finally {
+    submitting.value = false
   }
 }
 
