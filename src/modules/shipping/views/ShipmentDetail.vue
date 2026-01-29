@@ -4,32 +4,6 @@
       <template #header>
         <div class="card-header">
           <el-page-header :content="labels.title" @back="handleBack" />
-          <div class="header-actions">
-            <el-button
-              v-if="canMarkShipped"
-              size="small"
-              type="success"
-              @click="handleMarkShipped"
-            >
-              {{ labels.markShipped }}
-            </el-button>
-            <el-button
-              v-if="canMarkDelivered"
-              size="small"
-              type="success"
-              @click="handleMarkDelivered"
-            >
-              {{ labels.markDelivered }}
-            </el-button>
-            <el-button
-              v-if="canCancel"
-              size="small"
-              type="danger"
-              @click="handleCancel"
-            >
-              {{ labels.cancel }}
-            </el-button>
-          </div>
         </div>
       </template>
 
@@ -107,46 +81,13 @@
         </el-table>
       </div>
     </el-card>
-
-    <!-- 标记发货对话框 -->
-    <el-dialog v-model="shipDialogVisible" :title="labels.markShipped" width="500px">
-      <el-form :model="shipForm" label-width="120px">
-        <el-form-item :label="labels.carrier">
-          <el-input v-model="shipForm.carrier" :placeholder="labels.carrierPlaceholder" />
-        </el-form-item>
-        <el-form-item :label="labels.trackingNumber">
-          <el-input v-model="shipForm.tracking_number" :placeholder="labels.trackingPlaceholder" />
-        </el-form-item>
-        <el-form-item :label="labels.shippingCost">
-          <el-input-number
-            v-model="shipForm.shipping_cost"
-            :min="0"
-            :precision="2"
-            style="width: 100%"
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="shipDialogVisible = false">{{ labels.cancelText }}</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleConfirmShip">
-          {{ labels.confirmText }}
-        </el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import {
-  getShipmentDetail,
-  markShipped,
-  markDelivered,
-  cancelShipment,
-  type MarkShippedParams
-} from '../api'
+import { getShipmentDetail } from '../api'
 import type { Shipment, ShipmentStatus } from '../types'
 import { SHIPMENT_STATUS_CONFIG } from '../types'
 import { useLocaleStore } from '@/modules/common/stores/localeStore'
@@ -158,14 +99,6 @@ const shipmentId = Number(route.params.id)
 
 const shipment = ref<Shipment | null>(null)
 const loading = ref(false)
-
-const shipDialogVisible = ref(false)
-const shipForm = reactive({
-  carrier: '',
-  tracking_number: '',
-  shipping_cost: 0
-})
-const submitting = ref(false)
 
 const labels = computed(() => {
   if (localeStore.isEnglish) {
@@ -183,21 +116,7 @@ const labels = computed(() => {
       remark: 'Remark',
       sku: 'SKU',
       quantity: 'Quantity',
-      unitCost: 'Unit Cost',
-      markShipped: 'Mark Shipped',
-      markDelivered: 'Mark Delivered',
-      cancel: 'Cancel',
-      carrierPlaceholder: 'Enter carrier name',
-      trackingPlaceholder: 'Enter tracking number',
-      confirmText: 'Confirm',
-      cancelText: 'Cancel',
-      markShippedConfirm: 'Confirm shipment is shipped?',
-      markDeliveredConfirm: 'Confirm shipment is delivered?',
-      cancelConfirm: 'Cancel this shipment?',
-      shipSuccess: 'Marked as shipped',
-      deliverSuccess: 'Marked as delivered',
-      cancelSuccess: 'Shipment cancelled',
-      actionFailed: 'Operation failed'
+      unitCost: 'Unit Cost'
     }
   }
   return {
@@ -214,21 +133,7 @@ const labels = computed(() => {
     remark: '备注',
     sku: 'SKU',
     quantity: '数量',
-    unitCost: '单位成本',
-    markShipped: '标记发货',
-    markDelivered: '标记送达',
-    cancel: '取消',
-    carrierPlaceholder: '输入承运商名称',
-    trackingPlaceholder: '输入物流追踪号',
-    confirmText: '确定',
-    cancelText: '取消',
-    markShippedConfirm: '确认该发货单已发货？',
-    markDeliveredConfirm: '确认该发货单已送达？',
-    cancelConfirm: '确认取消该发货单？',
-    shipSuccess: '已标记为发货',
-    deliverSuccess: '已标记为送达',
-    cancelSuccess: '发货单已取消',
-    actionFailed: '操作失败'
+    unitCost: '单位成本'
   }
 })
 
@@ -237,7 +142,6 @@ const statusLabels = computed(() => {
     return {
       DRAFT: 'Draft',
       CONFIRMED: 'Confirmed',
-      PACKED: 'Packed',
       SHIPPED: 'Shipped',
       DELIVERED: 'Delivered',
       CANCELLED: 'Cancelled'
@@ -246,7 +150,6 @@ const statusLabels = computed(() => {
   return {
     DRAFT: '草稿',
     CONFIRMED: '已确认',
-    PACKED: '已打包',
     SHIPPED: '已发货',
     DELIVERED: '已送达',
     CANCELLED: '已取消'
@@ -256,12 +159,6 @@ const statusLabels = computed(() => {
 const getStatusLabel = (status: ShipmentStatus) => {
   return (statusLabels.value as Record<string, string>)[status] || status
 }
-
-const canMarkShipped = computed(() => shipment.value?.status === 'PACKED')
-const canMarkDelivered = computed(() => shipment.value?.status === 'SHIPPED')
-const canCancel = computed(() =>
-  ['DRAFT', 'CONFIRMED', 'PACKED'].includes(shipment.value?.status || '')
-)
 
 const formatDateTime = (dateTime?: string) => {
   if (!dateTime) return '-'
@@ -283,69 +180,6 @@ const handleBack = () => {
   router.back()
 }
 
-const handleMarkShipped = () => {
-  if (!shipment.value) return
-  shipForm.carrier = shipment.value.carrier || ''
-  shipForm.tracking_number = shipment.value.tracking_number || ''
-  shipForm.shipping_cost = shipment.value.shipping_cost || 0
-  shipDialogVisible.value = true
-}
-
-const handleConfirmShip = async () => {
-  if (!shipment.value) return
-
-  submitting.value = true
-  try {
-    const params: MarkShippedParams = {}
-    if (shipForm.carrier) params.carrier = shipForm.carrier
-    if (shipForm.tracking_number) params.tracking_number = shipForm.tracking_number
-    if (shipForm.shipping_cost) params.shipping_cost = shipForm.shipping_cost
-
-    await markShipped(shipment.value.id, params)
-    ElMessage.success(labels.value.shipSuccess)
-    shipDialogVisible.value = false
-    loadDetail()
-  } catch (error: any) {
-    ElMessage.error(error.message || labels.value.actionFailed)
-  } finally {
-    submitting.value = false
-  }
-}
-
-const handleMarkDelivered = async () => {
-  if (!shipment.value) return
-  try {
-    await ElMessageBox.confirm(labels.value.markDeliveredConfirm, labels.value.title, {
-      type: 'success'
-    })
-
-    await markDelivered(shipment.value.id)
-    ElMessage.success(labels.value.deliverSuccess)
-    loadDetail()
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || labels.value.actionFailed)
-    }
-  }
-}
-
-const handleCancel = async () => {
-  if (!shipment.value) return
-  try {
-    await ElMessageBox.confirm(labels.value.cancelConfirm, labels.value.title, {
-      type: 'warning'
-    })
-
-    await cancelShipment(shipment.value.id)
-    ElMessage.success(labels.value.cancelSuccess)
-    loadDetail()
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || labels.value.actionFailed)
-    }
-  }
-}
-
 onMounted(() => {
   loadDetail()
 })
@@ -359,14 +193,6 @@ onMounted(() => {
 .card-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 
 .summary-block {

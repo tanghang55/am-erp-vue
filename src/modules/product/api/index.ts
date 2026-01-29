@@ -8,7 +8,9 @@ import type {
   CreateProductParentParams,
   ProductCombo,
   ComboUpsertParams,
-  ProductImageUrl
+  ProductImageUrl,
+  ProductPackagingItem,
+  SaveProductPackagingParams
 } from '../types'
 import type { AuditLog } from '@/modules/system/types'
 import type { ApiResponse, PaginatedResponse } from '@/modules/common/types'
@@ -248,5 +250,28 @@ export function deleteProductCombo(id: number) {
   return request<ApiResponse<{ message: string }>>({
     url: `/api/v1/product-combos/${id}`,
     method: 'delete'
+  })
+}
+
+// ============= 产品包材配置 API =============
+
+/**
+ * 获取产品的包材配置列表
+ */
+export function getProductPackagingItems(productId: number) {
+  return request<ApiResponse<ProductPackagingItem[]>>({
+    url: `/api/v1/products/${productId}/packaging-items`,
+    method: 'get'
+  })
+}
+
+/**
+ * 保存产品的包材配置
+ */
+export function saveProductPackagingItems(productId: number, data: SaveProductPackagingParams) {
+  return request<ApiResponse<ProductPackagingItem[]>>({
+    url: `/api/v1/products/${productId}/packaging-items`,
+    method: 'put',
+    data
   })
 }

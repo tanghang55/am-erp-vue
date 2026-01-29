@@ -63,6 +63,7 @@ export interface Shipment {
   warehouse_id: number
 
   // 收货方信息
+  destination_warehouse_id?: number
   destination_type?: DestinationType
   destination_name?: string
   destination_code?: string
@@ -71,6 +72,9 @@ export interface Shipment {
   destination_address?: string
 
   // 物流信息
+  logistics_provider_id?: number
+  shipping_rate_id?: number
+  transport_mode?: string
   carrier?: string
   shipping_method?: string
   tracking_number?: string
@@ -88,6 +92,14 @@ export interface Shipment {
   ship_date?: string
   expected_delivery_date?: string
   actual_delivery_date?: string
+  confirmed_at?: string
+  shipped_at?: string
+  delivered_at?: string
+
+  // 操作人
+  confirmed_by?: number
+  shipped_by?: number
+  delivered_by?: number
 
   // 状态
   status: ShipmentStatus
@@ -106,6 +118,9 @@ export interface Shipment {
 
   // 关联
   warehouse?: Warehouse
+  destination_warehouse?: Warehouse
+  logistics_provider?: any
+  shipping_rate?: any
   items?: ShipmentItem[]
 }
 
@@ -137,7 +152,7 @@ export interface ShipmentItem {
   package_spec?: PackageSpec
 }
 
-export type ShipmentStatus = 'DRAFT' | 'CONFIRMED' | 'PACKED' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED'
+export type ShipmentStatus = 'DRAFT' | 'CONFIRMED' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED'
 
 export type DestinationType = 'PLATFORM_WAREHOUSE' | 'CUSTOMER' | 'OWN_WAREHOUSE' | 'SUPPLIER' | 'OTHER'
 
@@ -160,6 +175,7 @@ export interface CreateShipmentParams {
   sales_channel?: string
   warehouse_id: number
 
+  destination_warehouse_id?: number
   destination_type?: DestinationType
   destination_name?: string
   destination_code?: string
@@ -167,8 +183,11 @@ export interface CreateShipmentParams {
   destination_phone?: string
   destination_address?: string
 
+  logistics_provider_id?: number
+  shipping_rate_id?: number
+  transport_mode?: string
   carrier?: string
-  shipping_method?: string
+  tracking_number?: string
   expected_ship_date?: string
   expected_delivery_date?: string
 
@@ -180,6 +199,7 @@ export interface CreateShipmentParams {
   internal_notes?: string
 
   items: CreateShipmentItemParams[]
+  packaging_items?: PackagingConsumptionItem[]  // 包材消耗列表
 }
 
 export interface CreateShipmentItemParams {
@@ -190,6 +210,48 @@ export interface CreateShipmentItemParams {
   unit_cost?: number
   currency?: string
   remark?: string
+}
+
+// ============= Packaging Consumption (包材消耗) =============
+
+export interface PackagingConsumptionItem {
+  packaging_item_id: number
+  quantity: number
+  unit_cost?: number
+  notes?: string
+}
+
+/**
+ * 装箱规格包材配置项
+ */
+export interface PackageSpecPackagingItem {
+  id?: number
+  package_spec_id?: number
+  packaging_item_id: number
+  quantity_per_box: number  // 每箱需要的包材数量
+  notes?: string
+  // 包材信息（关联查询时返回）
+  packaging_item?: {
+    id: number
+    item_code: string
+    item_name: string
+    specification?: string
+    unit: string
+    unit_cost: number
+    currency: string
+    quantity_on_hand: number
+  }
+}
+
+/**
+ * 保存装箱规格包材配置参数
+ */
+export interface SavePackageSpecPackagingParams {
+  packaging_items: Array<{
+    packaging_item_id: number
+    quantity_per_box: number
+    notes?: string
+  }>
 }
 
 export interface MarkShippedParams {
@@ -219,13 +281,7 @@ export const SHIPMENT_STATUS_CONFIG = {
     label: '已确认',
     color: 'primary',
     icon: '✓',
-    description: '库存已锁定'
-  },
-  PACKED: {
-    label: '已打包',
-    color: 'warning',
-    icon: '📦',
-    description: '库存已扣减到待出'
+    description: '库存已锁定，待发货'
   },
   SHIPPED: {
     label: '已发货',

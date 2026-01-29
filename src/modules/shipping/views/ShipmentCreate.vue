@@ -57,6 +57,22 @@
 
         <el-row :gutter="20">
           <el-col :span="12">
+            <el-form-item :label="labels.destinationWarehouse">
+              <warehouse-selector
+                v-model="form.destination_warehouse_id"
+                :placeholder="labels.destinationWarehousePlaceholder"
+                style="width: 100%"
+                @change="handleDestinationWarehouseChange"
+              />
+              <div style="font-size: 12px; color: #67c23a; margin-top: 4px" v-if="form.destination_warehouse_id">
+                ✓ 已自动填充收货方信息
+              </div>
+              <div style="font-size: 12px; color: #909399; margin-top: 4px" v-else>
+                {{ labels.destinationWarehouseHint }}
+              </div>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
             <el-form-item :label="labels.destinationType" prop="destination_type">
               <el-select
                 v-model="form.destination_type"
@@ -72,6 +88,9 @@
               </el-select>
             </el-form-item>
           </el-col>
+        </el-row>
+
+        <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item :label="labels.destinationName" prop="destination_name">
               <el-input
@@ -81,9 +100,6 @@
               />
             </el-form-item>
           </el-col>
-        </el-row>
-
-        <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item :label="labels.destinationCode">
               <el-input
@@ -94,6 +110,9 @@
               <span class="field-hint">{{ labels.destinationCodeHint }}</span>
             </el-form-item>
           </el-col>
+        </el-row>
+
+        <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item :label="labels.destinationContact">
               <el-input
@@ -103,9 +122,6 @@
               />
             </el-form-item>
           </el-col>
-        </el-row>
-
-        <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item :label="labels.destinationPhone">
               <el-input
@@ -133,41 +149,175 @@
         <!-- 物流信息 -->
         <el-divider content-position="left">{{ labels.shippingInfo }}</el-divider>
 
+        <!-- 运费报价选择 -->
+        <el-row :gutter="20">
+          <el-col :span="24">
+            <el-form-item label="运费报价" prop="shipping_rate_id">
+              <el-select
+                v-model="form.shipping_rate_id"
+                placeholder="请选择运费报价（自动带出供应商、服务等信息）"
+                clearable
+                filterable
+                loading-text="加载报价中..."
+                :loading="loadingRates"
+                style="width: 100%"
+                @change="handleRateChange"
+              >
+                <el-option
+                  v-for="rate in availableRates"
+                  :key="rate.id"
+                  :label="formatRateLabel(rate)"
+                  :value="rate.id"
+                >
+                  <div style="display: flex; justify-content: space-between; align-items: center">
+                    <div>
+                      <span style="font-weight: 500">{{ rate.provider?.provider_name }}</span>
+                      <span style="margin-left: 8px; color: #909399; font-size: 12px">
+                        {{ TRANSPORT_MODE_CONFIG[rate.transport_mode]?.icon }}
+                        {{ TRANSPORT_MODE_CONFIG[rate.transport_mode]?.label }}
+                      </span>
+                      <span v-if="rate.service?.service_name" style="margin-left: 8px; color: #409eff; font-size: 12px">
+                        {{ rate.service.service_name }}
+                      </span>
+                    </div>
+                    <div style="color: #67c23a; font-weight: 500">
+                      {{ rate.base_rate }} {{ rate.currency }}/{{ PRICING_METHOD_CONFIG[rate.pricing_method]?.label }}
+                      <span v-if="rate.transit_days" style="margin-left: 8px; color: #909399; font-size: 12px">
+                        {{ rate.transit_days }}天
+                      </span>
+                    </div>
+                  </div>
+                </el-option>
+              </el-select>
+              <div v-if="!form.warehouse_id || !form.destination_warehouse_id" style="font-size: 12px; color: #f56c6c; margin-top: 4px">
+                ⚠ 请先选择起点仓库和目的地仓库
+              </div>
+              <div v-else-if="availableRates.length === 0 && !loadingRates" style="font-size: 12px; color: #e6a23c; margin-top: 4px">
+                ⚠ 暂无可用报价，请联系管理员添加
+              </div>
+              <div v-else-if="form.shipping_rate_id" style="font-size: 12px; color: #67c23a; margin-top: 4px">
+                ✓ 已自动填充物流信息
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <!-- 运费报价详细信息卡片 -->
+        <el-row v-if="shippingRate" :gutter="20">
+          <el-col :span="24">
+            <div class="rate-card">
+              <div class="rate-card-header">
+                <div class="rate-card-title">
+                  <i class="el-icon-box" style="color: #67c23a; margin-right: 8px"></i>
+                  <span>运费报价详情</span>
+                </div>
+                <el-tag type="success" size="small">已选中</el-tag>
+              </div>
+
+              <div class="rate-card-body">
+                <!-- 供应商和服务信息 -->
+                <div class="rate-section">
+                  <div class="rate-section-title">基本信息</div>
+                  <el-row :gutter="16">
+                    <el-col :span="8">
+                      <div class="rate-field">
+                        <div class="rate-field-label">承运商</div>
+                        <div class="rate-field-value">{{ shippingRate.provider?.provider_name || '-' }}</div>
+                      </div>
+                    </el-col>
+                    <el-col :span="8">
+                      <div class="rate-field">
+                        <div class="rate-field-label">运输方式</div>
+                        <div class="rate-field-value">
+                          {{ TRANSPORT_MODE_CONFIG[shippingRate.transport_mode]?.icon }}
+                          {{ TRANSPORT_MODE_CONFIG[shippingRate.transport_mode]?.label }}
+                        </div>
+                      </div>
+                    </el-col>
+                    <el-col :span="8" v-if="shippingRate.service?.service_name">
+                      <div class="rate-field">
+                        <div class="rate-field-label">服务类型</div>
+                        <div class="rate-field-value">{{ shippingRate.service.service_name }}</div>
+                      </div>
+                    </el-col>
+                  </el-row>
+                </div>
+
+                <!-- 价格信息 -->
+                <div class="rate-section">
+                  <div class="rate-section-title">价格信息</div>
+                  <el-row :gutter="16">
+                    <el-col :span="8">
+                      <div class="rate-field rate-field-primary">
+                        <div class="rate-field-label">基础运费</div>
+                        <div class="rate-field-value rate-price">
+                          {{ shippingRate.base_rate }} {{ shippingRate.currency }}
+                          <span class="rate-unit">/ {{ PRICING_METHOD_CONFIG[shippingRate.pricing_method]?.label }}</span>
+                        </div>
+                      </div>
+                    </el-col>
+                    <el-col :span="8" v-if="shippingRate.other_fee && shippingRate.other_fee > 0">
+                      <div class="rate-field">
+                        <div class="rate-field-label">其他费用</div>
+                        <div class="rate-field-value">{{ shippingRate.other_fee }} {{ shippingRate.currency }}</div>
+                      </div>
+                    </el-col>
+                    <el-col :span="8" v-if="shippingRate.min_weight">
+                      <div class="rate-field">
+                        <div class="rate-field-label">最小起送量</div>
+                        <div class="rate-field-value">{{ shippingRate.min_weight }} kg</div>
+                      </div>
+                    </el-col>
+                  </el-row>
+                </div>
+
+                <!-- 时效和有效期 -->
+                <div class="rate-section">
+                  <div class="rate-section-title">时效信息</div>
+                  <el-row :gutter="16">
+                    <el-col :span="8" v-if="shippingRate.transit_days">
+                      <div class="rate-field">
+                        <div class="rate-field-label">运输时效</div>
+                        <div class="rate-field-value">
+                          {{ shippingRate.transit_days }} 天
+                          <span v-if="form.expected_delivery_date" class="rate-hint">
+                            (预计 {{ form.expected_delivery_date }} 到达)
+                          </span>
+                        </div>
+                      </div>
+                    </el-col>
+                    <el-col :span="16">
+                      <div class="rate-field">
+                        <div class="rate-field-label">报价有效期</div>
+                        <div class="rate-field-value">
+                          {{ shippingRate.effective_date }} ~ {{ shippingRate.expiry_date || '长期有效' }}
+                        </div>
+                      </div>
+                    </el-col>
+                  </el-row>
+                </div>
+              </div>
+            </div>
+          </el-col>
+        </el-row>
+
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item :label="labels.carrier">
-              <el-select
+              <el-input
                 v-model="form.carrier"
                 :placeholder="labels.carrierPlaceholder"
                 clearable
-                filterable
-                allow-create
-                style="width: 100%"
-              >
-                <el-option label="FedEx" value="FedEx" />
-                <el-option label="UPS" value="UPS" />
-                <el-option label="DHL" value="DHL" />
-                <el-option label="顺丰" value="SF Express" />
-                <el-option label="中通" value="ZTO" />
-                <el-option label="圆通" value="YTO" />
-                <el-option label="韵达" value="Yunda" />
-              </el-select>
+              />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item :label="labels.shippingMethod">
-              <el-select
-                v-model="form.shipping_method"
-                :placeholder="labels.shippingMethodPlaceholder"
+            <el-form-item :label="labels.trackingNumber">
+              <el-input
+                v-model="form.tracking_number"
+                :placeholder="labels.trackingNumberPlaceholder"
                 clearable
-                style="width: 100%"
-              >
-                <el-option label="快递" value="Express" />
-                <el-option label="空运" value="Air" />
-                <el-option label="海运" value="Sea" />
-                <el-option label="陆运" value="Land" />
-                <el-option label="铁路" value="Railway" />
-              </el-select>
+              />
             </el-form-item>
           </el-col>
         </el-row>
@@ -181,6 +331,7 @@
                 :placeholder="labels.expectedShipDatePlaceholder"
                 style="width: 100%"
                 value-format="YYYY-MM-DD"
+                @change="handleExpectedShipDateChange"
               />
             </el-form-item>
           </el-col>
@@ -193,6 +344,9 @@
                 style="width: 100%"
                 value-format="YYYY-MM-DD"
               />
+              <div style="font-size: 12px; color: #67c23a; margin-top: 4px" v-if="form.expected_delivery_date && shippingRate?.transit_days">
+                ✓ 基于运输时效自动计算
+              </div>
             </el-form-item>
           </el-col>
         </el-row>
@@ -249,19 +403,19 @@
               </template>
             </el-table-column>
 
-            <el-table-column :label="labels.productCode" width="160">
+            <el-table-column :label="labels.productCode" width="150">
               <template #default="{ row }">
                 <span class="product-code">{{ row.product?.seller_sku || '-' }}</span>
               </template>
             </el-table-column>
 
-            <el-table-column :label="labels.productName" min-width="200">
+            <el-table-column :label="labels.productName" min-width="200" show-overflow-tooltip>
               <template #default="{ row }">
                 <span class="product-title">{{ row.product?.title || '-' }}</span>
               </template>
             </el-table-column>
 
-            <el-table-column :label="labels.pendingShipment" width="100" align="center">
+            <el-table-column :label="labels.pendingShipment" width="110" align="center">
               <template #default="{ row }">
                 <span :class="{ 'qty-warning': row.pending_shipment === 0 }">
                   {{ row.pending_shipment ?? '-' }}
@@ -269,7 +423,7 @@
               </template>
             </el-table-column>
 
-            <el-table-column :label="labels.packageSpec" width="200">
+            <el-table-column :label="labels.packageSpec" min-width="250">
               <template #default="{ row }">
                 <el-select
                   v-model="row.package_spec_id"
@@ -291,24 +445,25 @@
               </template>
             </el-table-column>
 
-            <el-table-column :label="labels.boxQuantity" width="110">
+            <el-table-column :label="labels.boxQuantity" width="100">
               <template #default="{ row }">
                 <el-input-number
                   v-model="row.box_quantity"
                   :min="1"
                   :precision="0"
+                  :controls="false"
                   style="width: 100%"
                 />
               </template>
             </el-table-column>
 
-            <el-table-column :label="labels.quantityPlanned" width="100" align="center">
+            <el-table-column :label="labels.quantityPlanned" width="110" align="center">
               <template #default="{ row }">
                 <span class="calculated-qty">{{ calculateItemQuantity(row) }}</span>
               </template>
             </el-table-column>
 
-            <el-table-column :label="labels.itemRemark" width="150">
+            <el-table-column :label="labels.itemRemark" min-width="150">
               <template #default="{ row }">
                 <el-input
                   v-model="row.remark"
@@ -334,6 +489,132 @@
           <div class="items-summary">
             <span>{{ labels.totalItems }}: {{ form.items.length }}</span>
             <span style="margin-left: 20px">{{ labels.totalQuantity }}: {{ totalQuantity }}</span>
+          </div>
+        </div>
+
+        <!-- 包材消耗预估 -->
+        <el-divider content-position="left">包材消耗预估</el-divider>
+
+        <!-- 产品包材消耗（打包时） -->
+        <div class="packaging-consumption-section">
+          <div class="consumption-title">
+            <span>产品包材消耗</span>
+            <el-tag size="small" type="info">打包时消耗</el-tag>
+          </div>
+
+          <el-table
+            :data="productPackagingConsumption"
+            border
+            size="small"
+            v-if="productPackagingConsumption.length > 0"
+          >
+            <el-table-column label="包材名称" min-width="150">
+              <template #default="{ row }">
+                {{ row.item_name }}
+              </template>
+            </el-table-column>
+            <el-table-column label="规格" width="120">
+              <template #default="{ row }">
+                {{ row.specification || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="单位" width="80" align="center">
+              <template #default="{ row }">
+                {{ row.unit }}
+              </template>
+            </el-table-column>
+            <el-table-column label="消耗数量" width="120" align="right">
+              <template #default="{ row }">
+                <span class="consumption-qty">{{ row.total_quantity.toFixed(3) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="单价" width="100" align="right">
+              <template #default="{ row }">
+                {{ row.unit_cost.toFixed(2) }} {{ row.currency }}
+              </template>
+            </el-table-column>
+            <el-table-column label="金额" width="120" align="right">
+              <template #default="{ row }">
+                <span class="consumption-cost">{{ (row.total_quantity * row.unit_cost).toFixed(2) }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <el-empty
+            v-else
+            description="暂无产品包材消耗"
+            :image-size="60"
+          />
+        </div>
+
+        <!-- 装箱包材消耗（发货时） -->
+        <div class="packaging-consumption-section" style="margin-top: 20px">
+          <div class="consumption-title">
+            <span>装箱包材消耗</span>
+            <el-tag size="small" type="warning">发货时消耗</el-tag>
+          </div>
+
+          <el-table
+            :data="boxPackagingConsumption"
+            border
+            size="small"
+            v-if="boxPackagingConsumption.length > 0"
+          >
+            <el-table-column label="包材名称" min-width="150">
+              <template #default="{ row }">
+                {{ row.item_name }}
+              </template>
+            </el-table-column>
+            <el-table-column label="规格" width="120">
+              <template #default="{ row }">
+                {{ row.specification || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="单位" width="80" align="center">
+              <template #default="{ row }">
+                {{ row.unit }}
+              </template>
+            </el-table-column>
+            <el-table-column label="消耗数量" width="120" align="right">
+              <template #default="{ row }">
+                <span class="consumption-qty">{{ row.total_quantity.toFixed(3) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="单价" width="100" align="right">
+              <template #default="{ row }">
+                {{ row.unit_cost.toFixed(2) }} {{ row.currency }}
+              </template>
+            </el-table-column>
+            <el-table-column label="金额" width="120" align="right">
+              <template #default="{ row }">
+                <span class="consumption-cost">{{ (row.total_quantity * row.unit_cost).toFixed(2) }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <el-empty
+            v-else
+            description="暂无装箱包材消耗"
+            :image-size="60"
+          />
+        </div>
+
+        <!-- 包材消耗汇总 -->
+        <div
+          v-if="productPackagingConsumption.length > 0 || boxPackagingConsumption.length > 0"
+          class="packaging-total"
+        >
+          <div class="total-row">
+            <span class="total-label">产品包材总成本:</span>
+            <span class="total-value">{{ productPackagingTotalCost.toFixed(2) }} CNY</span>
+          </div>
+          <div class="total-row">
+            <span class="total-label">装箱包材总成本:</span>
+            <span class="total-value">{{ boxPackagingTotalCost.toFixed(2) }} CNY</span>
+          </div>
+          <div class="total-row total-grand">
+            <span class="total-label">包材总成本:</span>
+            <span class="total-value">{{ totalPackagingCost.toFixed(2) }} CNY</span>
           </div>
         </div>
 
@@ -390,11 +671,17 @@ import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { createShipment, getPackageSpecList } from '../api'
+import { createShipment, getPackageSpecList, getPackageSpecPackagingItems } from '../api'
+import { getProductPackagingItems } from '@/modules/product/api'
 import type { CreateShipmentItemParams, PackageSpec, DestinationType } from '../types'
+import { getShippingRates } from '@/modules/logistics/api'
+import type { ShippingRate } from '@/modules/logistics/types'
+import { PROVIDER_TYPE_CONFIG, TRANSPORT_MODE_CONFIG, PRICING_METHOD_CONFIG } from '@/modules/logistics/types'
 import WarehouseSelector from '@/modules/inventory/components/WarehouseSelector.vue'
 import ProductPickerDialog from '@/modules/product/components/ProductPickerDialog.vue'
 import type { Sku } from '@/modules/product/types'
+import type { Warehouse } from '@/modules/inventory/types'
+import { getWarehouseDetail } from '@/modules/inventory/api'
 
 const router = useRouter()
 
@@ -410,6 +697,9 @@ const labels = computed(() => {
     warehousePlaceholder: '选择发货仓库',
 
     destinationInfo: '收货方信息',
+    destinationWarehouse: '目的地仓库',
+    destinationWarehousePlaceholder: '选择目的地仓库（可选）',
+    destinationWarehouseHint: '选择后将自动填充收货方信息',
     destinationType: '收货方类型',
     destinationTypePlaceholder: '选择收货方类型',
     destinationName: '收货方名称',
@@ -425,10 +715,24 @@ const labels = computed(() => {
     destinationAddressPlaceholder: '输入完整收货地址',
 
     shippingInfo: '物流信息',
+    logisticsProvider: '物流供应商',
+    logisticsProviderPlaceholder: '选择物流供应商',
+    transportMode: '运输方式',
+    transportModePlaceholder: '选择运输方式',
+    logisticsService: '物流服务',
+    logisticsServicePlaceholder: '选择服务类型（如：慢船、快船等）',
+    shippingRateInfo: '运费报价信息',
+    baseRate: '基础费率',
+    fuelSurcharge: '燃油附加费',
+    minCharge: '最低收费',
+    transitDays: '预计时效',
+    days: '天',
+    validDate: '有效期',
+    longTerm: '长期有效',
     carrier: '承运商',
-    carrierPlaceholder: '选择或输入承运商',
-    shippingMethod: '运输方式',
-    shippingMethodPlaceholder: '选择运输方式',
+    carrierPlaceholder: '输入承运商名称',
+    trackingNumber: '追踪单号',
+    trackingNumberPlaceholder: '输入追踪单号',
     expectedShipDate: '预计发货日期',
     expectedShipDatePlaceholder: '选择预计发货日期',
     expectedDeliveryDate: '预计到达日期',
@@ -480,6 +784,13 @@ const formRef = ref<FormInstance>()
 const submitting = ref(false)
 const productPickerVisible = ref(false)
 const packageSpecs = ref<PackageSpec[]>([])
+const shippingRate = ref<ShippingRate | null>(null)
+const availableRates = ref<ShippingRate[]>([])
+const loadingRates = ref(false)
+
+// 包材配置缓存（key: productId 或 packageSpecId, value: 包材配置列表）
+const productPackagingConfigs = ref<Record<number, any[]>>({})
+const packageSpecPackagingConfigs = ref<Record<number, any[]>>({})
 
 interface ShipmentItemForm extends CreateShipmentItemParams {
   product?: Sku
@@ -492,6 +803,7 @@ const form = reactive({
   sales_channel: '',
   warehouse_id: null as number | null,
 
+  destination_warehouse_id: null as number | null,
   destination_type: 'PLATFORM_WAREHOUSE' as DestinationType,
   destination_name: '',
   destination_code: '',
@@ -499,8 +811,12 @@ const form = reactive({
   destination_phone: '',
   destination_address: '',
 
+  logistics_provider_id: null as number | null,
+  transport_mode: null as TransportMode | null,
+  logistics_service_id: null as number | null,  // 物流服务ID
+  shipping_rate_id: null as number | null,
   carrier: '',
-  shipping_method: '',
+  tracking_number: '',
   expected_ship_date: '',
   expected_delivery_date: '',
 
@@ -554,6 +870,103 @@ const packageSummary = computed(() => {
   return { boxCount, totalWeight, totalVolume }
 })
 
+// 产品包材消耗计算（打包时）
+const productPackagingConsumption = computed(() => {
+  const consumptionMap = new Map<number, any>()
+
+  for (const item of form.items) {
+    if (!item.product?.id || !item.quantity_planned) continue
+
+    const productId = item.product.id
+    const quantity = item.quantity_planned
+
+    // 获取该产品的包材配置
+    const packagingConfigs = productPackagingConfigs.value[productId] || []
+
+    for (const config of packagingConfigs) {
+      const packagingItemId = config.packaging_item_id
+      const quantityPerUnit = config.quantity_per_unit || 0
+      const totalQty = quantity * quantityPerUnit
+
+      if (consumptionMap.has(packagingItemId)) {
+        const existing = consumptionMap.get(packagingItemId)
+        existing.total_quantity += totalQty
+      } else {
+        consumptionMap.set(packagingItemId, {
+          packaging_item_id: packagingItemId,
+          item_name: config.packaging_item?.item_name || '-',
+          item_code: config.packaging_item?.item_code || '-',
+          specification: config.packaging_item?.specification,
+          unit: config.packaging_item?.unit || '-',
+          unit_cost: config.packaging_item?.unit_cost || 0,
+          currency: config.packaging_item?.currency || 'CNY',
+          total_quantity: totalQty
+        })
+      }
+    }
+  }
+
+  return Array.from(consumptionMap.values())
+})
+
+// 装箱包材消耗计算（发货时）
+const boxPackagingConsumption = computed(() => {
+  const consumptionMap = new Map<number, any>()
+
+  for (const item of form.items) {
+    if (!item.package_spec_id || !item.box_quantity) continue
+
+    const packageSpecId = item.package_spec_id
+    const boxQty = item.box_quantity
+
+    // 获取该装箱规格的包材配置
+    const packagingConfigs = packageSpecPackagingConfigs.value[packageSpecId] || []
+
+    for (const config of packagingConfigs) {
+      const packagingItemId = config.packaging_item_id
+      const quantityPerBox = config.quantity_per_box || 0
+      const totalQty = boxQty * quantityPerBox
+
+      if (consumptionMap.has(packagingItemId)) {
+        const existing = consumptionMap.get(packagingItemId)
+        existing.total_quantity += totalQty
+      } else {
+        consumptionMap.set(packagingItemId, {
+          packaging_item_id: packagingItemId,
+          item_name: config.packaging_item?.item_name || '-',
+          item_code: config.packaging_item?.item_code || '-',
+          specification: config.packaging_item?.specification,
+          unit: config.packaging_item?.unit || '-',
+          unit_cost: config.packaging_item?.unit_cost || 0,
+          currency: config.packaging_item?.currency || 'CNY',
+          total_quantity: totalQty
+        })
+      }
+    }
+  }
+
+  return Array.from(consumptionMap.values())
+})
+
+// 产品包材总成本
+const productPackagingTotalCost = computed(() => {
+  return productPackagingConsumption.value.reduce((sum, item) => {
+    return sum + item.total_quantity * item.unit_cost
+  }, 0)
+})
+
+// 装箱包材总成本
+const boxPackagingTotalCost = computed(() => {
+  return boxPackagingConsumption.value.reduce((sum, item) => {
+    return sum + item.total_quantity * item.unit_cost
+  }, 0)
+})
+
+// 包材总成本
+const totalPackagingCost = computed(() => {
+  return productPackagingTotalCost.value + boxPackagingTotalCost.value
+})
+
 // 加载装箱规格列表
 const loadPackageSpecs = async () => {
   try {
@@ -575,6 +988,9 @@ const loadPackageSpecs = async () => {
 const handlePackageSpecChange = (row: ShipmentItemForm) => {
   if (row.package_spec_id) {
     row._packageSpec = packageSpecs.value.find(s => s.id === row.package_spec_id)
+
+    // 加载该装箱规格的包材配置
+    loadPackageSpecPackagingConfig(row.package_spec_id)
   } else {
     row._packageSpec = undefined
   }
@@ -587,6 +1003,120 @@ const calculateItemQuantity = (row: ShipmentItemForm): number => {
   const spec = packageSpecs.value.find(s => s.id === row.package_spec_id)
   if (!spec) return 0
   return row.box_quantity * (spec.quantity_per_box || 1)
+}
+
+// 加载可用报价列表
+const loadAvailableRates = async () => {
+  // 清空之前的数据
+  availableRates.value = []
+  shippingRate.value = null
+  form.shipping_rate_id = null
+  form.logistics_provider_id = null
+  form.transport_mode = null
+  form.logistics_service_id = null
+
+  // 检查必要条件：起点仓库和目的地仓库都必须选择
+  if (!form.warehouse_id || !form.destination_warehouse_id) {
+    return
+  }
+
+  loadingRates.value = true
+  try {
+    const res = await getShippingRates({
+      origin_warehouse_id: form.warehouse_id,
+      destination_warehouse_id: form.destination_warehouse_id,
+      status: 'ACTIVE',
+      page: 1,
+      page_size: 100
+    })
+
+    // 解析响应数据 - 分页格式: res.data.data, 数组格式: res.data
+    availableRates.value = res.data?.data || (Array.isArray(res.data) ? res.data : [])
+
+    console.log('加载到的可用报价:', availableRates.value)
+
+    if (availableRates.value.length === 0) {
+      ElMessage.warning('暂无可用的运费报价，请联系管理员添加')
+    }
+  } catch (error: any) {
+    console.error('加载运费报价失败:', error)
+    if (!error._handled) {
+      ElMessage.error('加载运费报价失败')
+    }
+  } finally {
+    loadingRates.value = false
+  }
+}
+
+// 报价选择变更处理
+const handleRateChange = (rateId: number | null) => {
+  if (!rateId) {
+    shippingRate.value = null
+    form.logistics_provider_id = null
+    form.transport_mode = null
+    form.logistics_service_id = null
+    return
+  }
+
+  // 找到选中的报价
+  const rate = availableRates.value.find(r => r.id === rateId)
+  if (!rate) {
+    return
+  }
+
+  // 设置报价信息
+  shippingRate.value = rate
+
+  // 自动填充相关字段
+  form.logistics_provider_id = rate.provider_id
+  form.transport_mode = rate.transport_mode
+  form.logistics_service_id = rate.service_id || null
+
+  // 自动填充预计到达日期（基于时效）
+  if (rate.transit_days && form.expected_ship_date) {
+    const shipDate = new Date(form.expected_ship_date)
+    shipDate.setDate(shipDate.getDate() + rate.transit_days)
+    form.expected_delivery_date = shipDate.toISOString().split('T')[0]
+  }
+
+  ElMessage.success('已自动填充物流信息')
+}
+
+// 格式化报价标签
+const formatRateLabel = (rate: ShippingRate) => {
+  const parts = []
+  if (rate.provider?.provider_name) {
+    parts.push(rate.provider.provider_name)
+  }
+  if (rate.transport_mode) {
+    parts.push(TRANSPORT_MODE_CONFIG[rate.transport_mode]?.label)
+  }
+  if (rate.service?.service_name) {
+    parts.push(rate.service.service_name)
+  }
+  parts.push(`${rate.base_rate} ${rate.currency}`)
+  return parts.join(' - ')
+}
+
+// 目的地仓库变更处理
+const handleDestinationWarehouseChange = async (warehouse: Warehouse | null) => {
+  if (!warehouse) {
+    availableRates.value = []
+    shippingRate.value = null
+    return
+  }
+
+  // 直接使用传入的仓库对象填充收货方信息（无需再次调用API）
+  form.destination_type = 'OWN_WAREHOUSE'
+  form.destination_name = warehouse.name
+  form.destination_contact = warehouse.contact_person || ''
+  form.destination_phone = warehouse.contact_phone || ''
+  form.destination_address = warehouse.address || ''
+
+  ElMessage.success(`已自动填充 ${warehouse.name} 的收货方信息`)
+
+  // 加载可用报价
+  await loadAvailableRates()
 }
 
 const handleDestinationTypeChange = () => {
@@ -616,6 +1146,11 @@ const handleProductsConfirm = (products: Array<Sku & { _inventory?: { pending_sh
         product,
         pending_shipment: product._inventory?.pending_shipment
       })
+
+      // 加载该产品的包材配置
+      if (product.id) {
+        loadProductPackagingConfig(product.id)
+      }
     }
   }
 }
@@ -628,6 +1163,38 @@ const getFullImageUrl = (url: string) => {
 
 const handleRemoveItem = (index: number) => {
   form.items.splice(index, 1)
+}
+
+// 加载产品的包材配置
+const loadProductPackagingConfig = async (productId: number) => {
+  // 如果已经加载过，跳过
+  if (productPackagingConfigs.value[productId]) {
+    return
+  }
+
+  try {
+    const res = await getProductPackagingItems(productId)
+    productPackagingConfigs.value[productId] = Array.isArray(res.data) ? res.data : []
+  } catch (error) {
+    console.error('Failed to load product packaging config:', error)
+    productPackagingConfigs.value[productId] = []
+  }
+}
+
+// 加载装箱规格的包材配置
+const loadPackageSpecPackagingConfig = async (packageSpecId: number) => {
+  // 如果已经加载过，跳过
+  if (packageSpecPackagingConfigs.value[packageSpecId]) {
+    return
+  }
+
+  try {
+    const res = await getPackageSpecPackagingItems(packageSpecId)
+    packageSpecPackagingConfigs.value[packageSpecId] = Array.isArray(res.data) ? res.data : []
+  } catch (error) {
+    console.error('Failed to load package spec packaging config:', error)
+    packageSpecPackagingConfigs.value[packageSpecId] = []
+  }
 }
 
 const validateItems = (): boolean => {
@@ -681,6 +1248,7 @@ const handleSubmit = async () => {
       sales_channel: form.sales_channel || undefined,
       warehouse_id: form.warehouse_id!,
 
+      destination_warehouse_id: form.destination_warehouse_id || undefined,
       destination_type: form.destination_type,
       destination_name: form.destination_name,
       destination_code: form.destination_code || undefined,
@@ -688,8 +1256,11 @@ const handleSubmit = async () => {
       destination_phone: form.destination_phone || undefined,
       destination_address: form.destination_address,
 
+      logistics_provider_id: form.logistics_provider_id || undefined,
+      shipping_rate_id: form.shipping_rate_id || undefined,
+      transport_mode: form.transport_mode || undefined,
       carrier: form.carrier || undefined,
-      shipping_method: form.shipping_method || undefined,
+      tracking_number: form.tracking_number || undefined,
       expected_ship_date: form.expected_ship_date || undefined,
       expected_delivery_date: form.expected_delivery_date || undefined,
 
@@ -732,9 +1303,13 @@ const handleBack = () => {
 watch(
   () => form.warehouse_id,
   (newVal, oldVal) => {
-    if (oldVal !== null && newVal !== oldVal && form.items.length > 0) {
-      form.items = []
-      ElMessage.info('仓库已变更，已清空产品列表')
+    if (oldVal !== null && newVal !== oldVal) {
+      if (form.items.length > 0) {
+        form.items = []
+        ElMessage.info('仓库已变更，已清空产品列表')
+      }
+      // 仓库变化时重新加载报价
+      loadAvailableRates()
     }
   }
 )
@@ -842,5 +1417,95 @@ onMounted(() => {
   font-weight: 600;
   color: #409eff;
   font-size: 14px;
+}
+
+/* 运费报价卡片样式 */
+.rate-card {
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  background: #f9fafb;
+  overflow: hidden;
+}
+
+.rate-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #fff;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.rate-card-title {
+  display: flex;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.rate-card-body {
+  padding: 20px;
+}
+
+.rate-section {
+  margin-bottom: 20px;
+}
+
+.rate-section:last-child {
+  margin-bottom: 0;
+}
+
+.rate-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #606266;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.rate-field {
+  background: #fff;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #e4e7ed;
+  height: 100%;
+}
+
+.rate-field-primary {
+  border-color: #67c23a;
+  background: #f0f9ff;
+}
+
+.rate-field-label {
+  font-size: 12px;
+  color: #909399;
+  margin-bottom: 6px;
+}
+
+.rate-field-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.rate-price {
+  font-size: 18px;
+  color: #67c23a;
+}
+
+.rate-unit {
+  font-size: 12px;
+  font-weight: normal;
+  color: #909399;
+  margin-left: 4px;
+}
+
+.rate-hint {
+  font-size: 12px;
+  font-weight: normal;
+  color: #67c23a;
+  margin-left: 8px;
 }
 </style>

@@ -183,8 +183,8 @@ const fetchLabels = async () => {
       page_size: queryParams.page_size
     })
     if (res.success) {
-      labelList.value = res.data.items
-      total.value = res.data.total
+      labelList.value = res.data?.data || []
+      total.value = res.data?.total || 0
     }
   } finally {
     loading.value = false

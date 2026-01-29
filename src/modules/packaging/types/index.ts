@@ -39,12 +39,12 @@ export interface PackagingItem {
   item_name: string
   category: PackagingCategory
   specification?: string | null
-  unit_cost: number
+  unit_cost: number  // 单位成本 - 金额可以有小数
   currency: string
   unit: string
-  quantity_on_hand: number
-  reorder_point?: number | null
-  reorder_quantity?: number | null
+  quantity_on_hand: number  // 库存数量 - 整数
+  reorder_point?: number | null  // 补货点 - 整数
+  reorder_quantity?: number | null  // 补货数量 - 整数
   supplier_name?: string | null
   supplier_contact?: string | null
   status: PackagingStatus
@@ -126,11 +126,11 @@ export interface PackagingLedger {
   trace_id: string
   packaging_item_id: number
   transaction_type: TransactionType
-  quantity: number
-  unit_cost: number
-  total_cost: number
-  quantity_before: number
-  quantity_after: number
+  quantity: number  // 数量 - 整数（正数入库，负数出库）
+  unit_cost: number  // 单位成本 - 金额可以有小数
+  total_cost: number  // 总成本 - 金额可以有小数
+  quantity_before: number  // 操作前库存 - 整数
+  quantity_after: number  // 操作后库存 - 整数
   reference_type?: string | null
   reference_id?: number | null
   occurred_at: string

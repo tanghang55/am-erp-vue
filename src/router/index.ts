@@ -144,6 +144,22 @@ const router = createRouter({
           name: 'shipping-package-specs',
           component: () => import('@/modules/shipping/views/PackageSpecList.vue')
         },
+        // Logistics Module Routes
+        {
+          path: 'logistics/providers',
+          name: 'logistics-providers',
+          component: () => import('@/modules/logistics/views/ProviderList.vue')
+        },
+        {
+          path: 'logistics/services',
+          name: 'logistics-services',
+          component: () => import('@/modules/logistics/views/LogisticsServiceList.vue')
+        },
+        {
+          path: 'logistics/shipping-rates',
+          name: 'logistics-shipping-rates',
+          component: () => import('@/modules/logistics/views/ShippingRateList.vue')
+        },
         // Finance Module Routes
         {
           path: 'finance/cash-ledger',

@@ -70,28 +70,34 @@ service.interceptors.response.use(
 
     let message = 'Unknown error'
     if (error.response) {
+      // 优先使用后端返回的错误信息
+      const responseMessage = error.response.data?.message || error.response.data?.error
+
       switch (error.response.status) {
         case 401:
-          message = 'Unauthorized, please login'
+          message = responseMessage || 'Unauthorized, please login'
           // 可以在这里跳转到登录页
           break
         case 403:
-          message = 'Access denied'
+          message = responseMessage || 'Access denied'
           break
         case 404:
-          message = 'Resource not found'
+          message = responseMessage || 'Resource not found'
           break
         case 500:
-          message = 'Server error'
+          message = responseMessage || 'Server error'
           break
         default:
-          message = error.response.data?.error || error.message
+          message = responseMessage || error.message
       }
     } else if (error.request) {
       message = 'Network error, please check your connection'
     }
 
     ElMessage.error(message)
+    // 标记错误已处理，组件中不需要再显示
+    error._handled = true
+    error._message = message
     return Promise.reject(error)
   }
 )

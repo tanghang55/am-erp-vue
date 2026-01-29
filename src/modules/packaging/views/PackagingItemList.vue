@@ -72,21 +72,7 @@
         </el-table-column>
         <el-table-column :label="labels.stockQty" width="120" align="right">
           <template #default="{ row }">
-            <span
-              :style="{
-                color:
-                  row.reorder_point && row.quantity_on_hand <= row.reorder_point
-                    ? '#F56C6C'
-                    : '#606266'
-              }"
-            >
-              {{ Number(row.quantity_on_hand).toFixed(2) }} {{ row.unit }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column :label="labels.reorderPoint" width="100" align="right">
-          <template #default="{ row }">
-            {{ row.reorder_point ? Number(row.reorder_point).toFixed(2) : '-' }}
+            <span>{{ row.quantity_on_hand }} {{ row.unit }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="supplier_name" :label="labels.supplier" width="120" show-overflow-tooltip />
@@ -97,8 +83,9 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="labels.actions" width="180" fixed="right">
+        <el-table-column :label="labels.actions" width="220" fixed="right">
           <template #default="{ row }">
+            <el-button link type="warning" @click="handleStockOperation(row)">{{ labels.stockOp }}</el-button>
             <el-button link type="primary" @click="handleEdit(row)">{{ labels.edit }}</el-button>
             <el-button link type="success" @click="viewLedger(row)">{{ labels.ledger }}</el-button>
             <el-button link type="danger" @click="handleDelete(row)">{{ labels.delete }}</el-button>
@@ -193,48 +180,23 @@
         </el-row>
 
         <el-row :gutter="16">
-          <el-col :span="8">
-            <el-form-item :label="labels.initialStock">
-              <el-input-number
-                v-model="formData.quantity_on_hand"
-                :precision="2"
-                :min="0"
-                style="width: 100%"
-                :disabled="!!editingId"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item :label="labels.reorderPoint">
-              <el-input-number
-                v-model="formData.reorder_point"
-                :precision="2"
-                :min="0"
-                style="width: 100%"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item :label="labels.reorderQty">
-              <el-input-number
-                v-model="formData.reorder_quantity"
-                :precision="2"
-                :min="0"
-                style="width: 100%"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item :label="labels.supplier">
-              <el-input v-model="formData.supplier_name" :placeholder="labels.supplierPlaceholder" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="labels.supplierContact">
-              <el-input v-model="formData.supplier_contact" :placeholder="labels.supplierContactPlaceholder" />
+              <el-select
+                v-model="formData.supplier_id"
+                :placeholder="labels.supplierPlaceholder"
+                filterable
+                clearable
+                style="width: 100%"
+                @change="handleSupplierChange"
+              >
+                <el-option
+                  v-for="supplier in supplierList"
+                  :key="supplier.id"
+                  :label="supplier.name"
+                  :value="supplier.id"
+                />
+              </el-select>
             </el-form-item>
           </el-col>
         </el-row>
@@ -266,6 +228,61 @@
         <el-button type="primary" @click="handleSubmit" :loading="submitting">{{ labels.confirm }}</el-button>
       </template>
     </el-dialog>
+
+    <!-- 库存操作对话框 -->
+    <el-dialog
+      v-model="stockDialogVisible"
+      :title="labels.stockOpTitle"
+      width="500px"
+      @close="handleStockDialogClose"
+    >
+      <div v-if="stockOperatingItem" class="stock-info">
+        <p><strong>{{ labels.itemCode }}:</strong> {{ stockOperatingItem.item_code }}</p>
+        <p><strong>{{ labels.itemName }}:</strong> {{ stockOperatingItem.item_name }}</p>
+        <p><strong>{{ labels.currentStock }}:</strong> {{ stockOperatingItem.quantity_on_hand }} {{ stockOperatingItem.unit }}</p>
+      </div>
+
+      <el-form :model="stockForm" ref="stockFormRef" label-width="100px">
+        <el-form-item :label="labels.opType" prop="type">
+          <el-radio-group v-model="stockForm.type">
+            <el-radio value="IN">{{ labels.stockIn }}</el-radio>
+            <el-radio value="OUT">{{ labels.stockOut }}</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-form-item :label="labels.quantity" prop="quantity">
+          <el-input-number
+            v-model="stockForm.quantity"
+            :min="1"
+            :precision="0"
+            style="width: 200px"
+          />
+        </el-form-item>
+
+        <el-form-item :label="labels.unitCost">
+          <el-input-number
+            v-model="stockForm.unit_cost"
+            :precision="4"
+            :min="0"
+            style="width: 200px"
+          />
+        </el-form-item>
+
+        <el-form-item :label="labels.notes">
+          <el-input
+            v-model="stockForm.notes"
+            type="textarea"
+            :rows="2"
+            :placeholder="labels.notesPlaceholder"
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="stockDialogVisible = false">{{ labels.cancel }}</el-button>
+        <el-button type="primary" @click="handleStockSubmit" :loading="stockSubmitting">{{ labels.confirm }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -277,8 +294,12 @@ import {
   getPackagingItemList,
   createPackagingItem,
   updatePackagingItem,
-  deletePackagingItem
+  deletePackagingItem,
+  createInboundLedger,
+  createOutboundLedger
 } from '../api'
+import { getSupplierList } from '@/modules/supplier/api'
+import type { Supplier } from '@/modules/supplier/types'
 import {
   type PackagingItem,
   type CreatePackagingItemRequest,
@@ -315,6 +336,13 @@ const labels = computed(() => {
       edit: 'Edit',
       ledger: 'Ledger',
       delete: 'Delete',
+      stockOp: 'Stock',
+      stockOpTitle: 'Stock Operation',
+      currentStock: 'Current Stock',
+      opType: 'Operation',
+      stockIn: 'Stock In',
+      stockOut: 'Stock Out',
+      quantity: 'Quantity',
       itemCodePlaceholder: 'e.g. BOX-001',
       itemNamePlaceholder: 'e.g. Small box',
       categoryPlaceholder: 'Select category',
@@ -371,6 +399,13 @@ const labels = computed(() => {
     edit: '编辑',
     ledger: '流水',
     delete: '删除',
+    stockOp: '库存',
+    stockOpTitle: '库存操作',
+    currentStock: '当前库存',
+    opType: '操作类型',
+    stockIn: '入库',
+    stockOut: '出库',
+    quantity: '数量',
     itemCodePlaceholder: '如: BOX-001',
     itemNamePlaceholder: '如: 小号纸箱',
     categoryPlaceholder: '请选择类别',
@@ -480,6 +515,7 @@ const getPackagingStatusColor = (status: PackagingStatus) => {
 const loading = ref(false)
 const itemList = ref<PackagingItem[]>([])
 const total = ref(0)
+const supplierList = ref<Supplier[]>([])
 
 // 查询参数
 const queryParams = reactive<PackagingItemQueryParams>({
@@ -495,15 +531,27 @@ const formRef = ref<FormInstance>()
 const editingId = ref<number | null>(null)
 
 // 表单数据
-const formData = reactive<CreatePackagingItemRequest>({
+const formData = reactive<CreatePackagingItemRequest & { supplier_id?: number }>({
   item_code: '',
   item_name: '',
   category: 'BOX' as any,
   unit_cost: 0,
   currency: 'CNY',
   unit: 'PCS',
-  quantity_on_hand: 0,
-  status: PackagingStatus.ACTIVE
+  status: PackagingStatus.ACTIVE,
+  supplier_id: undefined
+})
+
+// 库存操作对话框
+const stockDialogVisible = ref(false)
+const stockOperatingItem = ref<PackagingItem | null>(null)
+const stockSubmitting = ref(false)
+const stockFormRef = ref<FormInstance>()
+const stockForm = reactive({
+  type: 'IN',
+  quantity: 1,
+  unit_cost: 0,
+  notes: ''
 })
 
 // 表单验证规则
@@ -519,8 +567,8 @@ const fetchList = async () => {
   loading.value = true
   try {
     const res = await getPackagingItemList(queryParams)
-    itemList.value = res.data.items
-    total.value = res.data.total
+    itemList.value = res.data?.data || []
+    total.value = res.data?.total || 0
   } catch (error: any) {
     ElMessage.error(`${labels.value.loadFail}: ${error.message}`)
   } finally {
@@ -554,6 +602,8 @@ const handleCreate = () => {
 const handleEdit = (row: PackagingItem) => {
   dialogTitle.value = labels.value.editTitle
   editingId.value = row.id
+  // 根据supplier_name找到对应的supplier_id
+  const supplier = supplierList.value.find(s => s.name === row.supplier_name)
   Object.assign(formData, {
     item_code: row.item_code,
     item_name: row.item_name,
@@ -562,10 +612,8 @@ const handleEdit = (row: PackagingItem) => {
     unit_cost: row.unit_cost,
     currency: row.currency,
     unit: row.unit,
-    reorder_point: row.reorder_point,
-    reorder_quantity: row.reorder_quantity,
+    supplier_id: supplier?.id,
     supplier_name: row.supplier_name,
-    supplier_contact: row.supplier_contact,
     status: row.status,
     notes: row.notes
   })
@@ -630,14 +678,83 @@ const resetForm = () => {
     unit_cost: 0,
     currency: 'CNY',
     unit: 'PCS',
-    quantity_on_hand: 0,
-    reorder_point: undefined,
-    reorder_quantity: undefined,
+    supplier_id: undefined,
     supplier_name: undefined,
-    supplier_contact: undefined,
     status: PackagingStatus.ACTIVE,
     notes: undefined
   })
+}
+
+// 加载供应商列表
+const loadSuppliers = async () => {
+  try {
+    const res = await getSupplierList({ page: 1, page_size: 1000 })
+    supplierList.value = res.data?.data || res.data || []
+  } catch (error) {
+    console.error('Failed to load suppliers:', error)
+  }
+}
+
+// 供应商选择变化
+const handleSupplierChange = (supplierId: number | undefined) => {
+  if (supplierId) {
+    const supplier = supplierList.value.find(s => s.id === supplierId)
+    formData.supplier_name = supplier?.name
+  } else {
+    formData.supplier_name = undefined
+  }
+}
+
+// 库存操作
+const handleStockOperation = (row: PackagingItem) => {
+  stockOperatingItem.value = row
+  stockForm.type = 'IN'
+  stockForm.quantity = 1
+  stockForm.unit_cost = row.unit_cost || 0
+  stockForm.notes = ''
+  stockDialogVisible.value = true
+}
+
+const handleStockDialogClose = () => {
+  stockOperatingItem.value = null
+  stockForm.type = 'IN'
+  stockForm.quantity = 1
+  stockForm.unit_cost = 0
+  stockForm.notes = ''
+}
+
+const handleStockSubmit = async () => {
+  if (!stockOperatingItem.value) return
+  if (stockForm.quantity <= 0) {
+    ElMessage.warning(labels.value.quantity + ' must be greater than 0')
+    return
+  }
+
+  stockSubmitting.value = true
+  try {
+    const ledgerData = {
+      packaging_item_id: stockOperatingItem.value.id,
+      quantity: stockForm.quantity,
+      unit_cost: stockForm.unit_cost,
+      notes: stockForm.notes || undefined,
+      occurred_at: new Date().toISOString()
+    }
+
+    if (stockForm.type === 'IN') {
+      await createInboundLedger(ledgerData)
+      ElMessage.success(labels.value.stockIn + '成功')
+    } else {
+      await createOutboundLedger(ledgerData)
+      ElMessage.success(labels.value.stockOut + '成功')
+    }
+
+    stockDialogVisible.value = false
+    fetchList()
+  } catch (error: any) {
+    ElMessage.error(error.message || labels.value.submitFail)
+  } finally {
+    stockSubmitting.value = false
+  }
 }
 
 const viewLedger = (row: PackagingItem) => {
@@ -655,6 +772,7 @@ const viewLowStock = () => {
 
 onMounted(() => {
   dialogTitle.value = labels.value.createTitle
+  loadSuppliers()
   fetchList()
 })
 </script>
@@ -678,5 +796,17 @@ onMounted(() => {
   margin-top: 16px;
   display: flex;
   justify-content: flex-end;
+}
+
+.stock-info {
+  background: #f5f7fa;
+  padding: 12px 16px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.stock-info p {
+  margin: 4px 0;
+  color: #606266;
 }
 </style>

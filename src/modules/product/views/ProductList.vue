@@ -341,13 +341,136 @@
     </el-card>
 
     <!-- 创建/编辑对话框 -->
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="700px">
-      <el-form :model="skuForm" :rules="skuFormRules" ref="skuFormRef" label-width="140px">
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" :width="isEdit ? '900px' : '600px'" class="product-dialog">
+      <div class="dialog-layout" v-if="isEdit">
+        <!-- 左侧导航菜单 -->
+        <div class="dialog-nav">
+          <div
+            v-for="tab in dialogTabs"
+            :key="tab.key"
+            :class="['nav-item', { active: activeTab === tab.key }]"
+            @click="activeTab = tab.key"
+          >
+            <el-icon><component :is="tab.icon" /></el-icon>
+            <span>{{ tab.label }}</span>
+          </div>
+        </div>
+
+        <!-- 右侧内容区 -->
+        <div class="dialog-body">
+          <!-- 基础信息 -->
+          <div v-show="activeTab === 'basic'" class="tab-content">
+            <el-form :model="skuForm" :rules="skuFormRules" ref="skuFormRef" label-width="100px">
+              <el-form-item :label="text.productImage">
+                <ImageUpload v-model="skuForm.image_url" sub-dir="products" />
+              </el-form-item>
+              <el-form-item :label="text.sellerSku" prop="seller_sku">
+                <el-input v-model="skuForm.seller_sku" :disabled="isEdit" />
+              </el-form-item>
+              <el-form-item :label="text.asin" prop="asin">
+                <el-input v-model="skuForm.asin" />
+              </el-form-item>
+              <el-form-item :label="text.title" prop="title">
+                <el-input v-model="skuForm.title" type="textarea" :rows="2" />
+              </el-form-item>
+              <el-form-item :label="text.marketplace" prop="marketplace">
+                <el-select v-model="skuForm.marketplace" :disabled="isEdit" style="width: 100%">
+                  <el-option label="US" value="US" />
+                  <el-option label="CA" value="CA" />
+                  <el-option label="AU" value="AU" />
+                  <el-option label="UK" value="UK" />
+                </el-select>
+              </el-form-item>
+              <el-form-item :label="text.unitCostUsd">
+                <el-input-number v-model="skuForm.unit_cost" :min="0" :precision="2" style="width: 100%" />
+              </el-form-item>
+              <el-form-item :label="text.fnsku">
+                <el-input v-model="skuForm.fnsku" />
+              </el-form-item>
+              <el-form-item :label="text.remark">
+                <el-input v-model="skuForm.remark" type="textarea" :rows="3" />
+              </el-form-item>
+            </el-form>
+          </div>
+
+          <!-- 包材配置 -->
+          <div v-show="activeTab === 'packaging'" class="tab-content">
+            <div class="tab-header">
+              <el-button type="primary" :icon="Plus" size="small" @click="handleAddPackagingItem">
+                添加包材
+              </el-button>
+            </div>
+
+            <el-table :data="packagingItems" border size="small" v-if="packagingItems.length > 0">
+              <el-table-column type="index" label="#" width="45" />
+              <el-table-column label="包材名称" min-width="200">
+                <template #default="{ row }">
+                  <el-select
+                    v-model="row.packaging_item_id"
+                    placeholder="选择包材"
+                    filterable
+                    size="small"
+                    style="width: 100%"
+                    @change="handlePackagingItemSelect(row)"
+                  >
+                    <el-option
+                      v-for="item in availablePackagingItems"
+                      :key="item.id"
+                      :label="`${item.item_name} (${item.item_code})`"
+                      :value="item.id"
+                    >
+                      <div style="display: flex; justify-content: space-between">
+                        <span>{{ item.item_name }}</span>
+                        <span style="color: #909399; font-size: 12px">{{ item.specification || '-' }}</span>
+                      </div>
+                    </el-option>
+                  </el-select>
+                </template>
+              </el-table-column>
+              <el-table-column label="单位" width="70">
+                <template #default="{ row }">
+                  {{ row._packagingDetail?.unit || '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column label="消耗量" width="110">
+                <template #default="{ row }">
+                  <el-input-number
+                    v-model="row.quantity_per_unit"
+                    :min="0"
+                    :precision="3"
+                    :controls="false"
+                    size="small"
+                    placeholder="数量"
+                    style="width: 100%"
+                  />
+                </template>
+              </el-table-column>
+              <el-table-column label="备注" min-width="120">
+                <template #default="{ row }">
+                  <el-input v-model="row.notes" placeholder="备注" size="small" />
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="60">
+                <template #default="{ $index }">
+                  <el-button size="small" type="danger" link @click="handleRemovePackagingItem($index)">
+                    删除
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+
+            <el-empty v-else description="暂未配置包材" :image-size="80" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 新建模式：简单表单 -->
+      <el-form v-else :model="skuForm" :rules="skuFormRules" ref="skuFormRef" label-width="100px">
         <el-form-item :label="text.productImage">
           <ImageUpload v-model="skuForm.image_url" sub-dir="products" />
         </el-form-item>
         <el-form-item :label="text.sellerSku" prop="seller_sku">
-          <el-input v-model="skuForm.seller_sku" :disabled="isEdit" />
+          <el-input v-model="skuForm.seller_sku" />
         </el-form-item>
         <el-form-item :label="text.asin" prop="asin">
           <el-input v-model="skuForm.asin" />
@@ -356,7 +479,7 @@
           <el-input v-model="skuForm.title" type="textarea" :rows="2" />
         </el-form-item>
         <el-form-item :label="text.marketplace" prop="marketplace">
-          <el-select v-model="skuForm.marketplace" :disabled="isEdit">
+          <el-select v-model="skuForm.marketplace" style="width: 100%">
             <el-option label="US" value="US" />
             <el-option label="CA" value="CA" />
             <el-option label="AU" value="AU" />
@@ -364,7 +487,7 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="text.unitCostUsd">
-          <el-input-number v-model="skuForm.unit_cost" :min="0" :precision="2" />
+          <el-input-number v-model="skuForm.unit_cost" :min="0" :precision="2" style="width: 100%" />
         </el-form-item>
         <el-form-item :label="text.fnsku">
           <el-input v-model="skuForm.fnsku" />
@@ -441,12 +564,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, markRaw } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
-import { getSkuList, createSku, updateSku, deleteSku, getSkuAuditLogs } from '../api'
-import type { Sku } from '../types'
+import { Plus, Document, Box } from '@element-plus/icons-vue'
+import { getSkuList, createSku, updateSku, deleteSku, getSkuAuditLogs, getProductPackagingItems, saveProductPackagingItems } from '../api'
+import type { Sku, ProductPackagingItem } from '../types'
+import { getPackagingItemList } from '@/modules/packaging/api'
+import type { PackagingItem } from '@/modules/packaging/types'
 import type { AuditLog } from '@/modules/system/types'
 import ImageUpload from '@/modules/common/components/ImageUpload.vue'
 import { useAuditLogFormatter } from '@/modules/common/composables/useAuditLogFormatter'
@@ -497,6 +622,17 @@ const skuForm = reactive({
 const detailVisible = ref(false)
 const currentSku = ref<Sku | null>(null)
 const auditLogs = ref<AuditLog[]>([])
+
+// 对话框Tab导航
+const activeTab = ref('basic')
+const dialogTabs = [
+  { key: 'basic', label: '基础信息', icon: markRaw(Document) },
+  { key: 'packaging', label: '包材配置', icon: markRaw(Box) }
+]
+
+// 包材配置
+const packagingItems = ref<Array<ProductPackagingItem & { _packagingDetail?: PackagingItem }>>([])
+const availablePackagingItems = ref<PackagingItem[]>([])
 const auditLoading = ref(false)
 const auditPagination = reactive({
   page: 1,
@@ -629,6 +765,7 @@ const getFullImageUrl = (url: string) => {
 // 创建
 const handleCreate = () => {
   isEdit.value = false
+  activeTab.value = 'basic'
   dialogTitle.value = text.value.createSku
   Object.assign(skuForm, {
     image_url: '',
@@ -640,12 +777,15 @@ const handleCreate = () => {
     fnsku: '',
     remark: ''
   })
+  // 清空包材列表
+  packagingItems.value = []
   dialogVisible.value = true
 }
 
 // 编辑
-const handleEdit = (row: Sku) => {
+const handleEdit = async (row: Sku) => {
   isEdit.value = true
+  activeTab.value = 'basic'
   dialogTitle.value = text.value.edit
   Object.assign(skuForm, {
     id: row.id,
@@ -658,6 +798,13 @@ const handleEdit = (row: Sku) => {
     fnsku: row.fnsku,
     remark: row.remark
   })
+
+  // 加载可用包材列表
+  await loadAvailablePackagingItems()
+
+  // 加载产品的包材配置
+  await loadProductPackagingItems(row.id)
+
   dialogVisible.value = true
 }
 
@@ -683,7 +830,23 @@ const handleSave = async () => {
       saving.value = true
       try {
         if (isEdit.value) {
+          // 更新产品
           await updateSku((skuForm as any).id, skuForm)
+
+          // 保存包材配置
+          if (packagingItems.value.length > 0) {
+            const validItems = packagingItems.value.filter(
+              item => item.packaging_item_id && item.quantity_per_unit > 0
+            )
+            await saveProductPackagingItems((skuForm as any).id, {
+              packaging_items: validItems.map(item => ({
+                packaging_item_id: item.packaging_item_id,
+                quantity_per_unit: item.quantity_per_unit,
+                notes: item.notes
+              }))
+            })
+          }
+
           ElMessage.success(text.value.updatedSuccess)
         } else {
           await createSku(skuForm)
@@ -846,6 +1009,59 @@ const skuTableRef = ref()
 const toggleComboRow = (row: DisplaySku) => {
   if (!getComboChildren(row).length) return
   skuTableRef.value?.toggleRowExpansion(row)
+}
+
+// ========== 包材配置相关方法 ==========
+
+// 加载可用包材列表
+const loadAvailablePackagingItems = async () => {
+  try {
+    const res = await getPackagingItemList({
+      status: 'ACTIVE',
+      page: 1,
+      page_size: 1000
+    })
+    availablePackagingItems.value = res.data?.data || []
+  } catch (error: any) {
+    console.error('加载包材列表失败:', error)
+  }
+}
+
+// 加载产品的包材配置
+const loadProductPackagingItems = async (productId: number) => {
+  try {
+    const res = await getProductPackagingItems(productId)
+    const items = Array.isArray(res.data) ? res.data : []
+    packagingItems.value = items.map(item => ({
+      ...item,
+      _packagingDetail: availablePackagingItems.value.find(p => p.id === item.packaging_item_id)
+    }))
+  } catch (error: any) {
+    console.error('加载产品包材配置失败:', error)
+    packagingItems.value = []
+  }
+}
+
+// 添加包材项
+const handleAddPackagingItem = () => {
+  packagingItems.value.push({
+    packaging_item_id: 0,
+    quantity_per_unit: 0,
+    notes: ''
+  })
+}
+
+// 删除包材项
+const handleRemovePackagingItem = (index: number) => {
+  packagingItems.value.splice(index, 1)
+}
+
+// 包材选择变更
+const handlePackagingItemSelect = (row: ProductPackagingItem & { _packagingDetail?: PackagingItem }) => {
+  const selected = availablePackagingItems.value.find(item => item.id === row.packaging_item_id)
+  if (selected) {
+    row._packagingDetail = selected
+  }
 }
 
 onMounted(() => {
@@ -1067,4 +1283,95 @@ onMounted(() => {
   }
 }
 
+/* 对话框左右布局 */
+.product-dialog :deep(.el-dialog__body) {
+  padding: 0;
+}
+
+.dialog-layout {
+  display: flex;
+  min-height: 480px;
+}
+
+.dialog-nav {
+  width: 160px;
+  background: #f8fafc;
+  border-right: 1px solid #e2e8f0;
+  padding: 16px 0;
+  flex-shrink: 0;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  cursor: pointer;
+  color: #64748b;
+  font-size: 14px;
+  transition: all 0.2s;
+  border-left: 3px solid transparent;
+}
+
+.nav-item:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.nav-item.active {
+  background: #eff6ff;
+  color: #2563eb;
+  border-left-color: #2563eb;
+  font-weight: 500;
+}
+
+.nav-item .el-icon {
+  font-size: 18px;
+}
+
+.dialog-body {
+  flex: 1;
+  padding: 20px 24px;
+  overflow-y: auto;
+  max-height: 65vh;
+}
+
+.tab-content {
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.tab-header {
+  margin-bottom: 16px;
+}
+
+@media (max-width: 768px) {
+  .dialog-layout {
+    flex-direction: column;
+  }
+
+  .dialog-nav {
+    width: 100%;
+    display: flex;
+    border-right: none;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 0;
+  }
+
+  .nav-item {
+    flex: 1;
+    justify-content: center;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+  }
+
+  .nav-item.active {
+    border-left-color: transparent;
+    border-bottom-color: #2563eb;
+  }
+}
 </style>

@@ -370,8 +370,8 @@ const fetchList = async () => {
   loading.value = true
   try {
     const res = await getPackagingLedgerList(queryParams)
-    ledgerList.value = res.data.items
-    total.value = res.data.total
+    ledgerList.value = res.data?.data || []
+    total.value = res.data?.total || 0
   } catch (error: any) {
     ElMessage.error(`${labels.value.loadFail}: ${error.message}`)
   } finally {

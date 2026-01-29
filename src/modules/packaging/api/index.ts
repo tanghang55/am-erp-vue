@@ -15,7 +15,7 @@ import type {
   UsageSummaryItem
 } from '../types'
 
-const BASE_URL = '/api/packaging'
+const BASE_URL = '/api/v1/packaging'
 
 // ============================================================================
 // Packaging Item API

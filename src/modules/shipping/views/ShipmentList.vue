@@ -117,19 +117,19 @@
         <el-table-column :label="labels.timeline" width="180">
           <template #default="{ row }">
             <div style="font-size: 12px">
-              <div v-if="row.shipped_at">{{ labels.shippedAt }}: {{ formatDate(row.shipped_at) }}</div>
-              <div v-if="row.delivered_at">{{ labels.deliveredAt }}: {{ formatDate(row.delivered_at) }}</div>
-              <div v-if="!row.shipped_at && !row.delivered_at" style="color: #909399">-</div>
+              <div v-if="row.ship_date">{{ labels.shippedAt }}: {{ formatDate(row.ship_date) }}</div>
+              <div v-if="row.actual_delivery_date">{{ labels.deliveredAt }}: {{ formatDate(row.actual_delivery_date) }}</div>
+              <div v-if="!row.ship_date && !row.actual_delivery_date" style="color: #909399">-</div>
             </div>
           </template>
         </el-table-column>
         <el-table-column prop="remark" :label="labels.remark" min-width="150" show-overflow-tooltip />
         <el-table-column prop="created_at" :label="labels.createdAt" width="160" />
-        <el-table-column :label="labels.actions" width="300" fixed="right">
+        <el-table-column :label="labels.actions" width="360" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="handleView(row)">{{ labels.view }}</el-button>
             <el-button
-              v-if="row.status === 'PENDING'"
+              v-if="row.status === 'DRAFT'"
               size="small"
               type="primary"
               @click="handleEdit(row)"
@@ -137,7 +137,15 @@
               {{ labels.edit }}
             </el-button>
             <el-button
-              v-if="row.status === 'PENDING' || row.status === 'PROCESSING'"
+              v-if="row.status === 'DRAFT'"
+              size="small"
+              type="primary"
+              @click="handleConfirm(row)"
+            >
+              {{ labels.confirm }}
+            </el-button>
+            <el-button
+              v-if="row.status === 'CONFIRMED'"
               size="small"
               type="success"
               @click="handleMarkShipped(row)"
@@ -153,7 +161,7 @@
               {{ labels.markDelivered }}
             </el-button>
             <el-button
-              v-if="['PENDING', 'PROCESSING', 'SHIPPED'].includes(row.status)"
+              v-if="['DRAFT', 'CONFIRMED'].includes(row.status)"
               size="small"
               type="danger"
               @click="handleCancel(row)"
@@ -212,6 +220,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Download } from '@element-plus/icons-vue'
 import {
   getShipmentList,
+  confirmShipment,
   markShipped,
   markDelivered,
   cancelShipment
@@ -257,15 +266,18 @@ const labels = computed(() => {
       actions: 'Actions',
       view: 'View',
       edit: 'Edit',
+      confirm: 'Confirm',
       markShipped: 'Mark Shipped',
       markDelivered: 'Mark Delivered',
       cancel: 'Cancel',
+      confirmShipmentConfirm: 'Confirm this shipment? Inventory will be locked.',
       confirmTitle: 'Confirm',
       confirmText: 'Confirm',
       cancelText: 'Cancel',
       markShippedConfirm: 'Confirm shipment is shipped?',
       markDeliveredConfirm: 'Confirm shipment is delivered?',
       cancelConfirm: 'Cancel this shipment? Inventory must be restored manually.',
+      confirmed: 'Shipment confirmed',
       markedShipped: 'Marked as shipped',
       markedDelivered: 'Marked as delivered',
       cancelled: 'Shipment cancelled',
@@ -305,15 +317,18 @@ const labels = computed(() => {
     actions: '操作',
     view: '查看',
     edit: '编辑',
+    confirm: '确认',
     markShipped: '标记发货',
     markDelivered: '标记签收',
     cancel: '取消',
+    confirmShipmentConfirm: '确认该发货单？库存将被锁定。',
     confirmTitle: '提示',
     confirmText: '确定',
     cancelText: '取消',
     markShippedConfirm: '确认该发货单已发货？',
     markDeliveredConfirm: '确认该发货单已签收？',
     cancelConfirm: '确认取消该发货单？注意：取消后需要手动恢复库存',
+    confirmed: '发货单已确认',
     markedShipped: '已标记为发货',
     markedDelivered: '已标记为签收',
     cancelled: '发货单已取消',
@@ -327,18 +342,18 @@ const labels = computed(() => {
 const statusLabels = computed(() => {
   if (localeStore.isEnglish) {
     return {
-      PENDING: 'Pending',
-      PROCESSING: 'Processing',
+      DRAFT: 'Draft',
+      CONFIRMED: 'Confirmed',
       SHIPPED: 'Shipped',
       DELIVERED: 'Delivered',
       CANCELLED: 'Cancelled'
     }
   }
   return {
-    PENDING: '待处理',
-    PROCESSING: '处理中',
+    DRAFT: '草稿',
+    CONFIRMED: '已确认',
     SHIPPED: '已发货',
-    DELIVERED: '已签收',
+    DELIVERED: '已送达',
     CANCELLED: '已取消'
   }
 })
@@ -451,6 +466,26 @@ const handleEdit = (row: Shipment) => {
   router.push(`/shipping/shipments/${row.id}/edit`)
 }
 
+// 确认发货单 (DRAFT → CONFIRMED)
+const handleConfirm = async (row: Shipment) => {
+  try {
+    await ElMessageBox.confirm(labels.value.confirmShipmentConfirm, labels.value.confirmTitle, {
+      confirmButtonText: labels.value.confirmText,
+      cancelButtonText: labels.value.cancelText,
+      type: 'info'
+    })
+
+    await confirmShipment(row.id)
+    ElMessage.success(labels.value.confirmed)
+    loadList()
+  } catch (error: any) {
+    if (error !== 'cancel' && !error._handled) {
+      console.error('Confirm failed:', error)
+      ElMessage.error(error.message || labels.value.actionFail)
+    }
+  }
+}
+
 // 标记发货
 const handleMarkShipped = (row: Shipment) => {
   currentShipment.value = row
@@ -476,8 +511,10 @@ const handleConfirmShip = async () => {
     shipDialogVisible.value = false
     loadList()
   } catch (error: any) {
-    console.error('Mark shipped failed:', error)
-    ElMessage.error(error.message || labels.value.actionFail)
+    if (!error._handled) {
+      console.error('Mark shipped failed:', error)
+      ElMessage.error(error.message || labels.value.actionFail)
+    }
   } finally {
     submitting.value = false
   }
@@ -496,7 +533,7 @@ const handleMarkDelivered = async (row: Shipment) => {
     ElMessage.success(labels.value.markedDelivered)
     loadList()
   } catch (error: any) {
-    if (error !== 'cancel') {
+    if (error !== 'cancel' && !error._handled) {
       console.error('Mark delivered failed:', error)
       ElMessage.error(error.message || labels.value.actionFail)
     }
@@ -516,7 +553,7 @@ const handleCancel = async (row: Shipment) => {
     ElMessage.success(labels.value.cancelled)
     loadList()
   } catch (error: any) {
-    if (error !== 'cancel') {
+    if (error !== 'cancel' && !error._handled) {
       console.error('Cancel failed:', error)
       ElMessage.error(error.message || labels.value.cancelFail)
     }

@@ -8,9 +8,14 @@ import type {
   PackageSpec,
   PackageSpecListParams,
   CreatePackageSpecParams,
-  UpdatePackageSpecParams
+  UpdatePackageSpecParams,
+  PackageSpecPackagingItem,
+  SavePackageSpecPackagingParams
 } from '../types'
 import type { ApiResponse, PaginatedResponse } from '@/modules/common/types'
+
+// Re-export types for convenience
+export type { MarkShippedParams, MarkDeliveredParams }
 
 /**
  * 获取发货单列表
@@ -57,19 +62,7 @@ export function confirmShipment(id: number) {
 }
 
 /**
- * 完成打包 (CONFIRMED → PACKED)
- * 库存流转：原料库存 → 待出库存
- */
-export function packShipment(id: number) {
-  return request<ApiResponse<void>>({
-    url: `/api/v1/shipments/${id}/pack`,
-    method: 'post',
-    data: {}
-  })
-}
-
-/**
- * 标记发货 (PACKED → SHIPPED)
+ * 标记发货 (CONFIRMED → SHIPPED)
  * 库存流转：待出库存 → 物流在途
  */
 export function markShipped(id: number, data: MarkShippedParams) {
@@ -169,5 +162,28 @@ export function deletePackageSpec(id: number) {
   return request<ApiResponse<void>>({
     url: `/api/v1/package-specs/${id}`,
     method: 'delete'
+  })
+}
+
+// ============= 装箱规格包材配置 API =============
+
+/**
+ * 获取装箱规格的包材配置列表
+ */
+export function getPackageSpecPackagingItems(packageSpecId: number) {
+  return request<ApiResponse<PackageSpecPackagingItem[]>>({
+    url: `/api/v1/package-specs/${packageSpecId}/packaging-items`,
+    method: 'get'
+  })
+}
+
+/**
+ * 保存装箱规格的包材配置
+ */
+export function savePackageSpecPackagingItems(packageSpecId: number, data: SavePackageSpecPackagingParams) {
+  return request<ApiResponse<PackageSpecPackagingItem[]>>({
+    url: `/api/v1/package-specs/${packageSpecId}/packaging-items`,
+    method: 'put',
+    data
   })
 }

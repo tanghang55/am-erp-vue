@@ -158,6 +158,98 @@
             placeholder="输入备注"
           />
         </el-form-item>
+
+        <!-- 包材配置 -->
+        <el-divider v-if="editingId" content-position="left">包材配置</el-divider>
+        <div v-if="editingId" class="packaging-config-section">
+          <el-button
+            type="primary"
+            :icon="Plus"
+            size="small"
+            @click="handleAddPackagingItem"
+            style="margin-bottom: 12px"
+          >
+            添加包材
+          </el-button>
+
+          <el-table :data="packagingItems" border size="small" v-if="packagingItems.length > 0">
+            <el-table-column type="index" label="#" width="50" />
+
+            <el-table-column label="包材名称" width="200">
+              <template #default="{ row }">
+                <el-select
+                  v-model="row.packaging_item_id"
+                  placeholder="选择包材"
+                  filterable
+                  size="small"
+                  style="width: 100%"
+                  @change="handlePackagingItemSelect(row)"
+                >
+                  <el-option
+                    v-for="item in availablePackagingItems"
+                    :key="item.id"
+                    :label="`${item.item_name} (${item.item_code})`"
+                    :value="item.id"
+                  >
+                    <div style="display: flex; justify-content: space-between">
+                      <span>{{ item.item_name }}</span>
+                      <span style="color: #909399; font-size: 12px">{{ item.specification || '-' }}</span>
+                    </div>
+                  </el-option>
+                </el-select>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="单位" width="80">
+              <template #default="{ row }">
+                {{ row._packagingDetail?.unit || '-' }}
+              </template>
+            </el-table-column>
+
+            <el-table-column label="每箱消耗" width="150">
+              <template #default="{ row }">
+                <el-input-number
+                  v-model="row.quantity_per_box"
+                  :min="0"
+                  :precision="3"
+                  :controls="false"
+                  size="small"
+                  placeholder="数量"
+                  style="width: 100%"
+                />
+              </template>
+            </el-table-column>
+
+            <el-table-column label="备注" min-width="120">
+              <template #default="{ row }">
+                <el-input
+                  v-model="row.notes"
+                  placeholder="备注"
+                  size="small"
+                />
+              </template>
+            </el-table-column>
+
+            <el-table-column label="操作" width="80" fixed="right">
+              <template #default="{ $index }">
+                <el-button
+                  size="small"
+                  type="danger"
+                  link
+                  @click="handleRemovePackagingItem($index)"
+                >
+                  删除
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <el-empty
+            v-else
+            description="暂未配置包材"
+            :image-size="60"
+          />
+        </div>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -177,9 +269,13 @@ import {
   getPackageSpecList,
   createPackageSpec,
   updatePackageSpec,
-  deletePackageSpec
+  deletePackageSpec,
+  getPackageSpecPackagingItems,
+  savePackageSpecPackagingItems
 } from '../api'
-import type { PackageSpec } from '../types'
+import type { PackageSpec, PackageSpecPackagingItem } from '../types'
+import { getPackagingItemList } from '@/modules/packaging/api'
+import type { PackagingItem } from '@/modules/packaging/types'
 
 const loading = ref(false)
 const list = ref<PackageSpec[]>([])
@@ -218,6 +314,10 @@ const formRules: FormRules = {
   weight: [{ required: true, message: '请输入重量', trigger: 'blur' }],
   quantity_per_box: [{ required: true, message: '请输入每箱数量', trigger: 'blur' }]
 }
+
+// 包材配置
+const packagingItems = ref<Array<PackageSpecPackagingItem & { _packagingDetail?: PackagingItem }>>([])
+const availablePackagingItems = ref<PackagingItem[]>([])
 
 const loadList = async () => {
   loading.value = true
@@ -292,10 +392,12 @@ const resetForm = () => {
 const handleCreate = () => {
   editingId.value = null
   resetForm()
+  // 清空包材列表
+  packagingItems.value = []
   dialogVisible.value = true
 }
 
-const handleEdit = (row: PackageSpec) => {
+const handleEdit = async (row: PackageSpec) => {
   editingId.value = row.id
   formData.name = row.name
   formData.length = row.length
@@ -305,6 +407,13 @@ const handleEdit = (row: PackageSpec) => {
   formData.quantity_per_box = row.quantity_per_box || 1
   formData.remark = row.remark || ''
   formData.status = row.status
+
+  // 加载可用包材列表
+  await loadAvailablePackagingItems()
+
+  // 加载装箱规格的包材配置
+  await loadPackageSpecPackagingItems(row.id)
+
   dialogVisible.value = true
 }
 
@@ -319,6 +428,7 @@ const handleSubmit = async () => {
   submitting.value = true
   try {
     if (editingId.value) {
+      // 更新装箱规格
       await updatePackageSpec(editingId.value, {
         name: formData.name,
         length: formData.length,
@@ -329,6 +439,21 @@ const handleSubmit = async () => {
         remark: formData.remark || undefined,
         status: formData.status
       })
+
+      // 保存包材配置
+      if (packagingItems.value.length > 0) {
+        const validItems = packagingItems.value.filter(
+          item => item.packaging_item_id && item.quantity_per_box > 0
+        )
+        await savePackageSpecPackagingItems(editingId.value, {
+          packaging_items: validItems.map(item => ({
+            packaging_item_id: item.packaging_item_id,
+            quantity_per_box: item.quantity_per_box,
+            notes: item.notes
+          }))
+        })
+      }
+
       ElMessage.success('更新成功')
     } else {
       await createPackageSpec({
@@ -365,6 +490,59 @@ const handleDelete = async (row: PackageSpec) => {
       console.error('Delete failed:', error)
       ElMessage.error(error.message || '删除失败')
     }
+  }
+}
+
+// ========== 包材配置相关方法 ==========
+
+// 加载可用包材列表
+const loadAvailablePackagingItems = async () => {
+  try {
+    const res = await getPackagingItemList({
+      status: 'ACTIVE',
+      page: 1,
+      page_size: 1000
+    })
+    availablePackagingItems.value = res.data?.data || []
+  } catch (error: any) {
+    console.error('加载包材列表失败:', error)
+  }
+}
+
+// 加载装箱规格的包材配置
+const loadPackageSpecPackagingItems = async (packageSpecId: number) => {
+  try {
+    const res = await getPackageSpecPackagingItems(packageSpecId)
+    const items = Array.isArray(res.data) ? res.data : []
+    packagingItems.value = items.map(item => ({
+      ...item,
+      _packagingDetail: availablePackagingItems.value.find(p => p.id === item.packaging_item_id)
+    }))
+  } catch (error: any) {
+    console.error('加载装箱规格包材配置失败:', error)
+    packagingItems.value = []
+  }
+}
+
+// 添加包材项
+const handleAddPackagingItem = () => {
+  packagingItems.value.push({
+    packaging_item_id: 0,
+    quantity_per_box: 0,
+    notes: ''
+  })
+}
+
+// 删除包材项
+const handleRemovePackagingItem = (index: number) => {
+  packagingItems.value.splice(index, 1)
+}
+
+// 包材选择变更
+const handlePackagingItemSelect = (row: PackageSpecPackagingItem & { _packagingDetail?: PackagingItem }) => {
+  const selected = availablePackagingItems.value.find(item => item.id === row.packaging_item_id)
+  if (selected) {
+    row._packagingDetail = selected
   }
 }
 
