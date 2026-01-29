@@ -134,7 +134,7 @@
         <el-descriptions-item :label="text.status">
           <el-tag :type="getStatusType(currentParent.status)">{{ currentParent.status }}</el-tag>
         </el-descriptions-item>
-        <el-descriptions-item :label="text.createdAt">{{ currentParent.created_at }}</el-descriptions-item>
+        <el-descriptions-item :label="text.createdAt">{{ currentParent.gmt_create }}</el-descriptions-item>
         <el-descriptions-item :label="text.remark" :span="2">{{ currentParent.remark || '-' }}</el-descriptions-item>
       </el-descriptions>
     </el-dialog>

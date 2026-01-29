@@ -101,11 +101,11 @@
                     <div class="group-cell">
                       <div class="group-line">
                         <span class="group-label">{{ text.supplier }}</span>
-                        <span class="group-value">{{ child.supplier?.name || '-' }}</span>
+                        <span class="group-value">{{ child.supplier_name || '-' }}</span>
                       </div>
                       <div class="group-line">
                         <span class="group-label">ID</span>
-                        <span class="group-value">{{ child.supplier_id || '-' }}</span>
+                        <span class="group-value">{{ child.supplier_code || child.supplier_id || '-' }}</span>
                       </div>
                     </div>
                   </template>
@@ -115,15 +115,15 @@
                     <div class="group-cell">
                       <div class="group-line">
                         <span class="group-label">{{ text.available }}</span>
-                        <span class="group-value">{{ getInventoryValue(child, 'available') }}</span>
+                        <span class="group-value">{{ child.inventory_available ?? '-' }}</span>
                       </div>
                       <div class="group-line">
                         <span class="group-label">{{ text.reserved }}</span>
-                        <span class="group-value">{{ getInventoryValue(child, 'reserved') }}</span>
+                        <span class="group-value">{{ child.inventory_reserved ?? '-' }}</span>
                       </div>
                       <div class="group-line">
                         <span class="group-label">{{ text.inbound }}</span>
-                        <span class="group-value">{{ getInventoryValue(child, 'inbound') }}</span>
+                        <span class="group-value">{{ child.inventory_inbound ?? '-' }}</span>
                       </div>
                     </div>
                   </template>
@@ -137,11 +137,11 @@
                       </div>
                       <div class="group-line">
                         <span class="group-label">{{ text.weight }}</span>
-                        <span class="group-value">{{ child.weight || '-' }}</span>
+                        <span class="group-value">{{ formatOptional(child.weight) }}</span>
                       </div>
                       <div class="group-line">
                         <span class="group-label">{{ text.dimensions }}</span>
-                        <span class="group-value">{{ child.dimensions || '-' }}</span>
+                        <span class="group-value">{{ formatOptional(child.dimensions) }}</span>
                       </div>
                     </div>
                   </template>
@@ -166,11 +166,7 @@
                     <div class="group-cell">
                       <div class="group-line">
                         <span class="group-label">{{ text.createdAt }}</span>
-                        <span class="group-value">{{ formatDateTime(child.created_at) }}</span>
-                      </div>
-                      <div class="group-line">
-                        <span class="group-label">{{ text.createdBy }}</span>
-                        <span class="group-value">{{ getCreatedByDisplay(child) }}</span>
+                        <span class="group-value">{{ formatDateTime(child.gmt_create) }}</span>
                       </div>
                     </div>
                   </template>
@@ -242,11 +238,11 @@
             <div class="group-cell">
               <div class="group-line">
                 <span class="group-label">{{ text.supplier }}</span>
-                <span class="group-value">{{ row.supplier?.name || '-' }}</span>
+                <span class="group-value">{{ row.supplier_name || '-' }}</span>
               </div>
               <div class="group-line">
                 <span class="group-label">ID</span>
-                <span class="group-value">{{ row.supplier_id || '-' }}</span>
+                <span class="group-value">{{ row.supplier_code || row.supplier_id || '-' }}</span>
               </div>
             </div>
           </template>
@@ -256,15 +252,15 @@
             <div class="group-cell">
               <div class="group-line">
                 <span class="group-label">{{ text.available }}</span>
-                <span class="group-value">{{ getInventoryValue(row, 'available') }}</span>
+                <span class="group-value">{{ row.inventory_available ?? '-' }}</span>
               </div>
               <div class="group-line">
                 <span class="group-label">{{ text.reserved }}</span>
-                <span class="group-value">{{ getInventoryValue(row, 'reserved') }}</span>
+                <span class="group-value">{{ row.inventory_reserved ?? '-' }}</span>
               </div>
               <div class="group-line">
                 <span class="group-label">{{ text.inbound }}</span>
-                <span class="group-value">{{ getInventoryValue(row, 'inbound') }}</span>
+                <span class="group-value">{{ row.inventory_inbound ?? '-' }}</span>
               </div>
             </div>
           </template>
@@ -277,13 +273,13 @@
                 <span class="group-value">{{ formatMoney(row.unit_cost) }}</span>
               </div>
               <div class="group-line">
-                <span class="group-label">{{ text.weight }}</span>
-                <span class="group-value">{{ row.weight || '-' }}</span>
-              </div>
-              <div class="group-line">
-                <span class="group-label">{{ text.dimensions }}</span>
-                <span class="group-value">{{ row.dimensions || '-' }}</span>
-              </div>
+                        <span class="group-label">{{ text.weight }}</span>
+                        <span class="group-value">{{ formatOptional(row.weight) }}</span>
+                      </div>
+                      <div class="group-line">
+                        <span class="group-label">{{ text.dimensions }}</span>
+                        <span class="group-value">{{ formatOptional(row.dimensions) }}</span>
+                      </div>
             </div>
           </template>
         </el-table-column>
@@ -307,11 +303,7 @@
             <div class="group-cell">
               <div class="group-line">
                 <span class="group-label">{{ text.createdAt }}</span>
-                <span class="group-value">{{ formatDateTime(row.created_at) }}</span>
-              </div>
-              <div class="group-line">
-                <span class="group-label">{{ text.createdBy }}</span>
-                <span class="group-value">{{ getCreatedByDisplay(row) }}</span>
+                <span class="group-value">{{ formatDateTime(row.gmt_create) }}</span>
               </div>
             </div>
           </template>
@@ -341,8 +333,8 @@
     </el-card>
 
     <!-- 创建/编辑对话框 -->
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" :width="isEdit ? '900px' : '600px'" class="product-dialog">
-      <div class="dialog-layout" v-if="isEdit">
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="900px" class="product-dialog">
+      <div class="dialog-layout">
         <!-- 左侧导航菜单 -->
         <div class="dialog-nav">
           <div
@@ -360,37 +352,48 @@
         <div class="dialog-body">
           <!-- 基础信息 -->
           <div v-show="activeTab === 'basic'" class="tab-content">
-            <el-form :model="skuForm" :rules="skuFormRules" ref="skuFormRef" label-width="100px">
-              <el-form-item :label="text.productImage">
-                <ImageUpload v-model="skuForm.image_url" sub-dir="products" />
-              </el-form-item>
-              <el-form-item :label="text.sellerSku" prop="seller_sku">
-                <el-input v-model="skuForm.seller_sku" :disabled="isEdit" />
-              </el-form-item>
-              <el-form-item :label="text.asin" prop="asin">
-                <el-input v-model="skuForm.asin" />
-              </el-form-item>
-              <el-form-item :label="text.title" prop="title">
-                <el-input v-model="skuForm.title" type="textarea" :rows="2" />
-              </el-form-item>
-              <el-form-item :label="text.marketplace" prop="marketplace">
-                <el-select v-model="skuForm.marketplace" :disabled="isEdit" style="width: 100%">
-                  <el-option label="US" value="US" />
-                  <el-option label="CA" value="CA" />
-                  <el-option label="AU" value="AU" />
-                  <el-option label="UK" value="UK" />
-                </el-select>
-              </el-form-item>
-              <el-form-item :label="text.unitCostUsd">
-                <el-input-number v-model="skuForm.unit_cost" :min="0" :precision="2" style="width: 100%" />
-              </el-form-item>
-              <el-form-item :label="text.fnsku">
-                <el-input v-model="skuForm.fnsku" />
-              </el-form-item>
-              <el-form-item :label="text.remark">
-                <el-input v-model="skuForm.remark" type="textarea" :rows="3" />
-              </el-form-item>
-            </el-form>
+            <div class="form-section">
+              <el-form
+                :model="skuForm"
+                :rules="skuFormRules"
+                ref="skuFormRef"
+                label-position="top"
+                label-width="auto"
+                class="sku-form"
+              >
+                <div class="form-grid">
+                  <el-form-item :label="text.productImage" class="span-full">
+                    <ImageUpload v-model="skuForm.image_url" sub-dir="products" />
+                  </el-form-item>
+                  <el-form-item :label="text.sellerSku" prop="seller_sku">
+                    <el-input v-model="skuForm.seller_sku" :disabled="isEdit" />
+                  </el-form-item>
+                  <el-form-item :label="text.asin" prop="asin">
+                    <el-input v-model="skuForm.asin" />
+                  </el-form-item>
+                  <el-form-item :label="text.title" prop="title" class="span-full">
+                    <el-input v-model="skuForm.title" type="textarea" :rows="2" />
+                  </el-form-item>
+                  <el-form-item :label="text.marketplace" prop="marketplace">
+                    <el-select v-model="skuForm.marketplace" :disabled="isEdit" style="width: 100%">
+                      <el-option label="US" value="US" />
+                      <el-option label="CA" value="CA" />
+                      <el-option label="AU" value="AU" />
+                      <el-option label="UK" value="UK" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item :label="text.unitCostUsd">
+                    <el-input-number v-model="skuForm.unit_cost" :min="0" :precision="2" style="width: 100%" />
+                  </el-form-item>
+                  <el-form-item :label="text.fnsku">
+                    <el-input v-model="skuForm.fnsku" />
+                  </el-form-item>
+                  <el-form-item :label="text.remark" class="span-full">
+                    <el-input v-model="skuForm.remark" type="textarea" :rows="3" />
+                  </el-form-item>
+                </div>
+              </el-form>
+            </div>
           </div>
 
           <!-- 包材配置 -->
@@ -464,39 +467,6 @@
         </div>
       </div>
 
-      <!-- 新建模式：简单表单 -->
-      <el-form v-else :model="skuForm" :rules="skuFormRules" ref="skuFormRef" label-width="100px">
-        <el-form-item :label="text.productImage">
-          <ImageUpload v-model="skuForm.image_url" sub-dir="products" />
-        </el-form-item>
-        <el-form-item :label="text.sellerSku" prop="seller_sku">
-          <el-input v-model="skuForm.seller_sku" />
-        </el-form-item>
-        <el-form-item :label="text.asin" prop="asin">
-          <el-input v-model="skuForm.asin" />
-        </el-form-item>
-        <el-form-item :label="text.title" prop="title">
-          <el-input v-model="skuForm.title" type="textarea" :rows="2" />
-        </el-form-item>
-        <el-form-item :label="text.marketplace" prop="marketplace">
-          <el-select v-model="skuForm.marketplace" style="width: 100%">
-            <el-option label="US" value="US" />
-            <el-option label="CA" value="CA" />
-            <el-option label="AU" value="AU" />
-            <el-option label="UK" value="UK" />
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="text.unitCostUsd">
-          <el-input-number v-model="skuForm.unit_cost" :min="0" :precision="2" style="width: 100%" />
-        </el-form-item>
-        <el-form-item :label="text.fnsku">
-          <el-input v-model="skuForm.fnsku" />
-        </el-form-item>
-        <el-form-item :label="text.remark">
-          <el-input v-model="skuForm.remark" type="textarea" :rows="3" />
-        </el-form-item>
-      </el-form>
-
       <template #footer>
         <el-button @click="dialogVisible = false">{{ text.cancel }}</el-button>
         <el-button type="primary" :loading="saving" @click="handleSave">{{ text.save }}</el-button>
@@ -528,16 +498,19 @@
             <el-descriptions-item :label="text.fnsku">{{ currentSku.fnsku || '-' }}</el-descriptions-item>
             <el-descriptions-item :label="text.title" :span="2">{{ currentSku.title }}</el-descriptions-item>
             <el-descriptions-item :label="text.unitCost">${{ currentSku.unit_cost || '-' }}</el-descriptions-item>
-            <el-descriptions-item :label="text.supplier">{{ currentSku.supplier?.name || '-' }}</el-descriptions-item>
-            <el-descriptions-item :label="text.createdAt">{{ currentSku.created_at }}</el-descriptions-item>
-            <el-descriptions-item :label="text.updatedAt">{{ currentSku.updated_at || '-' }}</el-descriptions-item>
+            <el-descriptions-item :label="text.supplier">
+              <span>{{ currentSku.supplier_name || '-' }}</span>
+              <span v-if="currentSku.supplier_code"> ({{ currentSku.supplier_code }})</span>
+            </el-descriptions-item>
+            <el-descriptions-item :label="text.createdAt">{{ formatDateTime(currentSku.gmt_create) }}</el-descriptions-item>
+            <el-descriptions-item :label="text.updatedAt">{{ formatDateTime(currentSku.gmt_modified) }}</el-descriptions-item>
             <el-descriptions-item :label="text.remark" :span="2">{{ currentSku.remark || '-' }}</el-descriptions-item>
           </el-descriptions>
         </div>
       </div>
       <el-divider content-position="left">{{ text.auditLogs }}</el-divider>
       <el-table :data="auditLogs" v-loading="auditLoading" border stripe>
-        <el-table-column prop="created_at" :label="text.time" width="180" />
+        <el-table-column prop="gmt_create" :label="text.time" width="180" />
         <el-table-column prop="action" :label="text.action" width="140" />
         <el-table-column :label="text.changes" min-width="360">
           <template #default="{ row }">
@@ -763,7 +736,7 @@ const getFullImageUrl = (url: string) => {
 }
 
 // 创建
-const handleCreate = () => {
+const handleCreate = async () => {
   isEdit.value = false
   activeTab.value = 'basic'
   dialogTitle.value = text.value.createSku
@@ -779,6 +752,7 @@ const handleCreate = () => {
   })
   // 清空包材列表
   packagingItems.value = []
+  await loadAvailablePackagingItems()
   dialogVisible.value = true
 }
 
@@ -787,6 +761,12 @@ const handleEdit = async (row: Sku) => {
   isEdit.value = true
   activeTab.value = 'basic'
   dialogTitle.value = text.value.edit
+  const unitCostValue =
+    row.unit_cost === 0 || row.unit_cost === '0'
+      ? 0
+      : row.unit_cost !== undefined && row.unit_cost !== null && row.unit_cost !== ''
+        ? Number(row.unit_cost)
+        : undefined
   Object.assign(skuForm, {
     id: row.id,
     image_url: row.image_url || '',
@@ -794,7 +774,7 @@ const handleEdit = async (row: Sku) => {
     asin: row.asin,
     title: row.title,
     marketplace: row.marketplace,
-    unit_cost: row.unit_cost ? parseFloat(row.unit_cost) : undefined,
+    unit_cost: unitCostValue,
     fnsku: row.fnsku,
     remark: row.remark
   })
@@ -834,22 +814,14 @@ const handleSave = async () => {
           await updateSku((skuForm as any).id, skuForm)
 
           // 保存包材配置
-          if (packagingItems.value.length > 0) {
-            const validItems = packagingItems.value.filter(
-              item => item.packaging_item_id && item.quantity_per_unit > 0
-            )
-            await saveProductPackagingItems((skuForm as any).id, {
-              packaging_items: validItems.map(item => ({
-                packaging_item_id: item.packaging_item_id,
-                quantity_per_unit: item.quantity_per_unit,
-                notes: item.notes
-              }))
-            })
-          }
+          await savePackagingItems((skuForm as any).id)
 
           ElMessage.success(text.value.updatedSuccess)
         } else {
-          await createSku(skuForm)
+          const res = await createSku(skuForm)
+          if (res?.data?.id) {
+            await savePackagingItems(res.data.id)
+          }
           ElMessage.success(text.value.createdSuccess)
         }
         dialogVisible.value = false
@@ -894,10 +866,10 @@ const getStatusType = (status: string) => {
   return types[status] || 'info'
 }
 
-const formatMoney = (value?: string) => {
-  if (!value) return '-'
+const formatMoney = (value?: string | number | null) => {
+  if (value === null || value === undefined || value === '') return '-'
   const parsed = Number(value)
-  if (Number.isNaN(parsed)) return value
+  if (Number.isNaN(parsed)) return String(value)
   return `$${parsed.toFixed(2)}`
 }
 
@@ -909,32 +881,9 @@ const formatDateTime = (value?: string) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-const getInventoryValue = (row: Sku, key: 'available' | 'reserved' | 'inbound') => {
-  const source = row as unknown as Record<string, any>
-  const candidates = {
-    available: ['inventory_available', 'stock_available', 'available_qty', 'available'],
-    reserved: ['inventory_reserved', 'stock_reserved', 'reserved_qty', 'reserved'],
-    inbound: ['inventory_inbound', 'stock_inbound', 'inbound_qty', 'inbound']
-  }[key]
-
-  for (const field of candidates) {
-    if (source[field] !== undefined && source[field] !== null && source[field] !== '') {
-      return source[field]
-    }
-  }
-  return '-'
-}
-
-const getCreatedByDisplay = (row: Sku) => {
-  const source = row as unknown as Record<string, any>
-  return (
-    source.created_by_name ||
-    source.creator_name ||
-    source.creator ||
-    source.created_by ||
-    source.created_by_id ||
-    '-'
-  )
+const formatOptional = (value?: string | number | null) => {
+  if (value === null || value === undefined || value === '') return '-'
+  return String(value)
 }
 
 const loadAuditLogs = async (skuId: number) => {
@@ -1062,6 +1011,19 @@ const handlePackagingItemSelect = (row: ProductPackagingItem & { _packagingDetai
   if (selected) {
     row._packagingDetail = selected
   }
+}
+
+const savePackagingItems = async (productId: number) => {
+  if (!productId) return
+  const validItems = packagingItems.value
+    .filter(item => item.packaging_item_id && item.quantity_per_unit > 0)
+    .map(item => ({
+      packaging_item_id: item.packaging_item_id,
+      quantity_per_unit: item.quantity_per_unit,
+      notes: item.notes
+    }))
+  if (validItems.length === 0) return
+  await saveProductPackagingItems(productId, { packaging_items: validItems })
 }
 
 onMounted(() => {
@@ -1286,6 +1248,24 @@ onMounted(() => {
 /* 对话框左右布局 */
 .product-dialog :deep(.el-dialog__body) {
   padding: 0;
+  background: #f8fafc;
+}
+
+.product-dialog :deep(.el-dialog__header) {
+  padding: 16px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.product-dialog :deep(.el-dialog__title) {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.product-dialog :deep(.el-dialog__footer) {
+  border-top: 1px solid #e2e8f0;
+  padding: 14px 24px;
+  background: #ffffff;
 }
 
 .dialog-layout {
@@ -1336,6 +1316,29 @@ onMounted(() => {
   max-height: 65vh;
 }
 
+.form-section {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.sku-form :deep(.el-form-item__label) {
+  font-weight: 600;
+  color: #334155;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 20px;
+}
+
+.form-grid .span-full {
+  grid-column: 1 / -1;
+}
+
 .tab-content {
   animation: fadeIn 0.2s ease;
 }
@@ -1347,6 +1350,8 @@ onMounted(() => {
 
 .tab-header {
   margin-bottom: 16px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 @media (max-width: 768px) {
@@ -1372,6 +1377,10 @@ onMounted(() => {
   .nav-item.active {
     border-left-color: transparent;
     border-bottom-color: #2563eb;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

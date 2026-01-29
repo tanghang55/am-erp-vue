@@ -15,8 +15,8 @@ const baseSku = (overrides: Partial<Sku>): Sku => ({
   title: '',
   marketplace: 'US',
   status: 'ACTIVE',
-  created_at: '',
-  updated_at: '',
+  gmt_create: '',
+  gmt_modified: '',
   ...overrides
 })
 

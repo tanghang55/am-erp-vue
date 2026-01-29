@@ -117,8 +117,8 @@ describe('PurchaseOrderForm', () => {
           title: 'Test',
           marketplace: 'US',
           status: 'ACTIVE',
-          created_at: '',
-          updated_at: ''
+          gmt_create: '',
+          gmt_modified: ''
         }
       }
     ]
@@ -169,8 +169,8 @@ describe('PurchaseOrderForm', () => {
           title: 'Test',
           marketplace: 'US',
           status: 'ACTIVE',
-          created_at: '',
-          updated_at: ''
+          gmt_create: '',
+          gmt_modified: ''
         }
       }
     ]
@@ -223,8 +223,8 @@ describe('PurchaseOrderForm', () => {
           marketplace: 'US',
           status: 'ACTIVE',
           image_url: 'https://example.com/sku.png',
-          created_at: '',
-          updated_at: ''
+          gmt_create: '',
+          gmt_modified: ''
         }
       }
     ]

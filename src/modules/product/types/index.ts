@@ -13,15 +13,20 @@ export interface Sku {
   combo_id?: number
   is_combo_main?: number
   supplier_id?: number
+  supplier_name?: string
+  supplier_code?: string
   unit_cost?: string
   weight?: string
   dimensions?: string
+  inventory_available?: number
+  inventory_reserved?: number
+  inventory_inbound?: number
   status: 'ACTIVE' | 'INACTIVE' | 'DISCONTINUED'
   image_url?: string
   images?: string[]  // 产品图片数组（最多10张）
   remark?: string
-  created_at: string
-  updated_at: string
+  gmt_create: string
+  gmt_modified: string
   supplier?: Supplier
 }
 
@@ -37,8 +42,8 @@ export interface ProductParent {
   status: 'ACTIVE' | 'INACTIVE' | 'DISCONTINUED'
   image_url?: string
   remark?: string
-  created_at: string
-  updated_at: string
+  gmt_create: string
+  gmt_modified: string
 }
 
 export interface ProductCombo {
