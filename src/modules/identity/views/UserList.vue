@@ -1,71 +1,105 @@
 <template>
   <div class="user-list-container">
-    <el-card>
+    <el-card shadow="never">
       <template #header>
-        <div class="card-header">
-          <h3>User Management</h3>
+        <div class="page-header">
+          <div>
+            <div class="page-title">用户管理</div>
+            <div class="page-subtitle">维护 ERP 用户档案、登录状态和权限摘要。查看、编辑、删除各自独立，不再混在一个入口里。</div>
+          </div>
           <el-button type="primary" @click="handleCreate">
             <el-icon><Plus /></el-icon>
-            Create User
+            新建用户
           </el-button>
         </div>
       </template>
 
-      <!-- 搜索栏 -->
       <el-form :inline="true" :model="searchForm" class="search-form">
-        <el-form-item label="Keyword">
+        <el-form-item label="关键词">
           <el-input
             v-model="searchForm.keyword"
-            placeholder="Username, email or name"
+            placeholder="用户名 / 邮箱 / 姓名"
             clearable
+            style="width: 240px"
             @clear="handleSearch"
+            @keyup.enter="handleSearch"
           />
         </el-form-item>
-        <el-form-item label="Status">
-          <el-select v-model="searchForm.status" placeholder="All" clearable>
-            <el-option label="Active" value="ACTIVE" />
-            <el-option label="Disabled" value="DISABLED" />
+        <el-form-item label="状态">
+          <el-select v-model="searchForm.status" placeholder="全部" clearable style="width: 140px" @clear="handleSearch">
+            <el-option label="启用" value="ACTIVE" />
+            <el-option label="停用" value="DISABLED" />
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleSearch">Search</el-button>
-          <el-button @click="handleReset">Reset</el-button>
+          <el-button type="primary" @click="handleSearch">查询</el-button>
+          <el-button @click="handleReset">重置</el-button>
         </el-form-item>
       </el-form>
 
-      <!-- 用户列表 -->
       <el-table :data="userList" v-loading="loading" border stripe>
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="username" label="Username" width="150" />
-        <el-table-column prop="real_name" label="Real Name" width="150" />
-        <el-table-column prop="email" label="Email" width="200" />
-        <el-table-column prop="phone" label="Phone" width="150" />
-        <el-table-column prop="status" label="Status" width="100">
+        <el-table-column label="用户" min-width="260">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'danger'">
-              {{ row.status }}
-            </el-tag>
+            <div class="user-main">
+              <div class="user-main__title">{{ row.real_name || row.username }}</div>
+              <div class="user-main__meta">
+                <span>{{ row.username }}</span>
+                <span v-if="row.real_name">{{ row.real_name }}</span>
+              </div>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="last_login_at" label="Last Login" width="180" />
-        <el-table-column prop="created_at" label="Created At" width="180" />
-        <el-table-column label="Actions" width="250" fixed="right">
+
+        <el-table-column label="联系方式" min-width="240">
           <template #default="{ row }">
-            <el-button size="small" @click="handleView(row)">View</el-button>
-            <el-button size="small" type="primary" @click="handleEdit(row)">Edit</el-button>
-            <el-button
-              size="small"
-              type="danger"
-              @click="handleDelete(row)"
-              :disabled="row.id === authStore.user?.id"
-            >
-              Delete
-            </el-button>
+            <div class="contact-block">
+              <div>{{ row.email || '未填写邮箱' }}</div>
+              <div class="contact-block__meta">{{ row.phone || '未填写手机号' }}</div>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="状态与登录" min-width="220">
+          <template #default="{ row }">
+            <div class="status-block">
+              <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'">
+                {{ row.status === 'ACTIVE' ? '启用' : '停用' }}
+              </el-tag>
+              <div class="status-block__meta">
+                最近登录：{{ row.last_login_at || '从未登录' }}
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="创建时间" width="180">
+          <template #default="{ row }">{{ row.gmt_create }}</template>
+        </el-table-column>
+
+        <el-table-column label="操作" width="220" fixed="right">
+          <template #default="{ row }">
+            <el-button size="small" @click="handleView(row)">查看详情</el-button>
+            <el-button size="small" type="primary" @click="handleEdit(row)">编辑</el-button>
+            <el-dropdown @command="(command) => handleRowCommand(command, row)">
+              <el-button size="small">
+                更多
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item
+                    command="delete"
+                    :disabled="row.id === authStore.user?.id"
+                    class="danger-command"
+                  >
+                    删除用户
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </template>
         </el-table-column>
       </el-table>
 
-      <!-- 分页 -->
       <div class="pagination">
         <el-pagination
           v-model:current-page="pagination.page"
@@ -74,153 +108,209 @@
           :total="pagination.total"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleSearch"
-          @current-change="handleSearch"
+          @current-change="loadUserList"
         />
       </div>
     </el-card>
 
-    <!-- 创建/编辑对话框 -->
-    <el-dialog
-      v-model="dialogVisible"
-      :title="dialogTitle"
-      width="600px"
-      @close="handleDialogClose"
-    >
-      <el-form :model="userForm" :rules="userFormRules" ref="userFormRef" label-width="120px">
-        <el-form-item label="Username" prop="username" v-if="!isEdit">
-          <el-input v-model="userForm.username" placeholder="4-50 characters" />
-        </el-form-item>
-        <el-form-item label="Password" :prop="isEdit ? '' : 'password'">
-          <el-input
-            v-model="userForm.password"
-            type="password"
-            :placeholder="isEdit ? 'Leave blank to keep unchanged' : 'At least 8 characters'"
-          />
-        </el-form-item>
-        <el-form-item label="Real Name" prop="real_name">
-          <el-input v-model="userForm.real_name" />
-        </el-form-item>
-        <el-form-item label="Email" prop="email">
-          <el-input v-model="userForm.email" type="email" />
-        </el-form-item>
-        <el-form-item label="Phone" prop="phone">
-          <el-input v-model="userForm.phone" />
-        </el-form-item>
-      </el-form>
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="820px" @close="handleDialogClose">
+      <div class="dialog-layout">
+        <el-form :model="userForm" :rules="userFormRules" ref="userFormRef" label-position="top" class="dialog-form">
+          <div class="dialog-grid">
+            <el-form-item label="用户名" prop="username" v-if="!isEdit">
+              <el-input v-model="userForm.username" placeholder="4-50 个字符" />
+            </el-form-item>
+            <el-form-item label="密码" :prop="isEdit ? '' : 'password'">
+              <el-input
+                v-model="userForm.password"
+                type="password"
+                :placeholder="isEdit ? '留空表示不修改' : '至少 8 个字符'"
+              />
+            </el-form-item>
+            <el-form-item label="姓名" prop="real_name">
+              <el-input v-model="userForm.real_name" />
+            </el-form-item>
+            <el-form-item label="邮箱" prop="email">
+              <el-input v-model="userForm.email" type="email" />
+            </el-form-item>
+            <el-form-item label="手机号" prop="phone">
+              <el-input v-model="userForm.phone" />
+            </el-form-item>
+            <el-form-item label="状态">
+              <el-radio-group v-model="userForm.status">
+                <el-radio value="ACTIVE">启用</el-radio>
+                <el-radio value="DISABLED">停用</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </div>
+        </el-form>
+
+        <aside class="dialog-aside">
+          <div class="dialog-summary">
+            <div class="dialog-summary__title">档案摘要</div>
+            <div class="dialog-summary__item">
+              <span>用户名</span>
+              <strong>{{ userForm.username || '-' }}</strong>
+            </div>
+            <div class="dialog-summary__item">
+              <span>姓名</span>
+              <strong>{{ userForm.real_name || '-' }}</strong>
+            </div>
+            <div class="dialog-summary__item">
+              <span>邮箱</span>
+              <strong>{{ userForm.email || '-' }}</strong>
+            </div>
+            <div class="dialog-summary__item">
+              <span>状态</span>
+              <strong>{{ userForm.status === 'ACTIVE' ? '启用' : '停用' }}</strong>
+            </div>
+          </div>
+        </aside>
+      </div>
 
       <template #footer>
-        <el-button @click="dialogVisible = false">Cancel</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSave">Save</el-button>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
       </template>
     </el-dialog>
 
-    <!-- 用户详情对话框 -->
-    <el-dialog v-model="detailVisible" title="User Details" width="700px">
-      <el-descriptions :column="2" border v-if="currentUser">
-        <el-descriptions-item label="ID">{{ currentUser.user.id }}</el-descriptions-item>
-        <el-descriptions-item label="Username">{{
-          currentUser.user.username
-        }}</el-descriptions-item>
-        <el-descriptions-item label="Real Name">{{
-          currentUser.user.real_name
-        }}</el-descriptions-item>
-        <el-descriptions-item label="Email">{{ currentUser.user.email }}</el-descriptions-item>
-        <el-descriptions-item label="Phone">{{ currentUser.user.phone }}</el-descriptions-item>
-        <el-descriptions-item label="Status">
-          <el-tag :type="currentUser.user.status === 'ACTIVE' ? 'success' : 'danger'">
-            {{ currentUser.user.status }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="Last Login">{{
-          currentUser.user.last_login_at || 'Never'
-        }}</el-descriptions-item>
-        <el-descriptions-item label="Created At">{{
-          currentUser.user.created_at
-        }}</el-descriptions-item>
-        <el-descriptions-item label="Roles" :span="2">
-          <el-tag
-            v-for="role in currentUser.roles"
-            :key="role.id"
-            type="info"
-            style="margin-right: 5px"
-          >
-            {{ role.display_name }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="Permissions" :span="2">
-          <el-tag
-            v-for="perm in currentUser.permissions"
-            :key="perm.id"
-            size="small"
-            style="margin: 2px"
-          >
-            {{ perm.name }}
-          </el-tag>
-        </el-descriptions-item>
-      </el-descriptions>
+    <el-dialog v-model="detailVisible" title="用户详情" width="820px">
+      <div v-if="currentUser" class="detail-layout">
+        <section class="detail-card detail-card--main">
+          <div class="detail-main">
+            <div class="detail-main__title">{{ currentUser.user.real_name || currentUser.user.username }}</div>
+            <div class="detail-main__meta">{{ currentUser.user.username }}</div>
+            <div class="detail-tags">
+              <el-tag :type="currentUser.user.status === 'ACTIVE' ? 'success' : 'info'">
+                {{ currentUser.user.status === 'ACTIVE' ? '启用' : '停用' }}
+              </el-tag>
+            </div>
+          </div>
+        </section>
+
+        <section class="detail-card">
+          <div class="detail-card__title">基础信息</div>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span>用户名</span>
+              <strong>{{ currentUser.user.username }}</strong>
+            </div>
+            <div class="detail-item">
+              <span>姓名</span>
+              <strong>{{ currentUser.user.real_name || '-' }}</strong>
+            </div>
+            <div class="detail-item">
+              <span>邮箱</span>
+              <strong>{{ currentUser.user.email || '-' }}</strong>
+            </div>
+            <div class="detail-item">
+              <span>手机号</span>
+              <strong>{{ currentUser.user.phone || '-' }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="detail-card">
+          <div class="detail-card__title">登录与归档</div>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span>最近登录</span>
+              <strong>{{ currentUser.user.last_login_at || '从未登录' }}</strong>
+            </div>
+            <div class="detail-item">
+              <span>创建时间</span>
+              <strong>{{ currentUser.user.gmt_create }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="detail-card">
+          <div class="detail-card__title">角色</div>
+          <div class="tag-list">
+            <el-tag v-for="role in currentUser.roles" :key="role.id" type="info">{{ role.display_name }}</el-tag>
+            <span v-if="!currentUser.roles.length">未分配角色</span>
+          </div>
+        </section>
+
+        <section class="detail-card">
+          <div class="detail-card__title">权限</div>
+          <div class="tag-list">
+            <el-tag v-for="perm in currentUser.permissions" :key="perm.id" size="small">{{ perm.name }}</el-tag>
+            <span v-if="!currentUser.permissions.length">未分配权限</span>
+          </div>
+        </section>
+      </div>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import type { DropdownCommand } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import {
-  getUserList,
-  getUserDetail,
   createUser,
+  deleteUser,
+  getUserDetail,
+  getUserList,
   updateUser,
-  deleteUser
+  type UserDetailResponse
 } from '../api/system'
 import type { User } from '../types'
 import { useAuthStore } from '../stores/authStore'
 
 const authStore = useAuthStore()
 
-// 列表数据
 const userList = ref<User[]>([])
 const loading = ref(false)
 
-// 搜索表单
 const searchForm = reactive({
   keyword: '',
   status: ''
 })
 
-// 分页
 const pagination = reactive({
   page: 1,
   page_size: 20,
   total: 0
 })
 
-// 对话框
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const isEdit = ref(false)
 const saving = ref(false)
 const userFormRef = ref<FormInstance>()
 
-const userForm = reactive({
+interface UserFormData {
+  id?: number
+  username: string
+  password: string
+  real_name: string
+  email: string
+  phone: string
+  status: 'ACTIVE' | 'DISABLED'
+}
+
+const userForm = reactive<UserFormData>({
   username: '',
   password: '',
   real_name: '',
   email: '',
-  phone: ''
+  phone: '',
+  status: 'ACTIVE'
 })
 
 const userFormRules: FormRules = {
-  username: [{ required: true, message: 'Please enter username', trigger: 'blur' }],
-  password: [{ required: true, message: 'Please enter password', trigger: 'blur' }],
-  email: [{ type: 'email', message: 'Invalid email format', trigger: 'blur' }]
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  email: [{ type: 'email', message: '邮箱格式不正确', trigger: 'blur' }]
 }
 
-// 详情对话框
 const detailVisible = ref(false)
-const currentUser = ref<UserDetailResponse['data'] | null>(null)
+const currentUser = ref<UserDetailResponse | null>(null)
 
-// 加载用户列表
+
 const loadUserList = async () => {
   loading.value = true
   try {
@@ -228,13 +318,10 @@ const loadUserList = async () => {
       page: pagination.page,
       page_size: pagination.page_size,
       keyword: searchForm.keyword || undefined,
-      status: searchForm.status as any
+      status: searchForm.status as 'ACTIVE' | 'DISABLED' | undefined
     })
-
-    if (res.success) {
-      userList.value = res.data.data
-      pagination.total = res.data.total
-    }
+    userList.value = res.data.data
+    pagination.total = res.data.total
   } catch (error) {
     console.error('Failed to load users:', error)
   } finally {
@@ -242,108 +329,106 @@ const loadUserList = async () => {
   }
 }
 
-// 搜索
 const handleSearch = () => {
   pagination.page = 1
   loadUserList()
 }
 
-// 重置搜索
 const handleReset = () => {
   searchForm.keyword = ''
   searchForm.status = ''
   handleSearch()
 }
 
-// 创建用户
-const handleCreate = () => {
-  isEdit.value = false
-  dialogTitle.value = 'Create User'
+const resetUserForm = () => {
   Object.assign(userForm, {
+    id: undefined,
     username: '',
     password: '',
     real_name: '',
     email: '',
-    phone: ''
+    phone: '',
+    status: 'ACTIVE'
   })
+}
+
+const handleCreate = () => {
+  isEdit.value = false
+  dialogTitle.value = '新建用户'
+  resetUserForm()
   dialogVisible.value = true
 }
 
-// 编辑用户
 const handleEdit = (row: User) => {
   isEdit.value = true
-  dialogTitle.value = 'Edit User'
+  dialogTitle.value = '编辑用户'
   Object.assign(userForm, {
     id: row.id,
     username: row.username,
     password: '',
-    real_name: row.real_name,
-    email: row.email,
-    phone: row.phone
+    real_name: row.real_name || '',
+    email: row.email || '',
+    phone: row.phone || '',
+    status: row.status
   })
   dialogVisible.value = true
 }
 
-// 查看用户详情
 const handleView = async (row: User) => {
   try {
     const res = await getUserDetail(row.id)
-    if (res.success) {
-      currentUser.value = res.data
-      detailVisible.value = true
-    }
+    currentUser.value = res.data
+    detailVisible.value = true
   } catch (error) {
     console.error('Failed to load user details:', error)
   }
 }
 
-// 保存用户
 const handleSave = async () => {
   if (!userFormRef.value) return
-
   await userFormRef.value.validate(async (valid) => {
-    if (valid) {
-      saving.value = true
-      try {
-        if (isEdit.value) {
-          const data: any = {
-            real_name: userForm.real_name,
-            email: userForm.email,
-            phone: userForm.phone
-          }
-          if (userForm.password) {
-            data.password = userForm.password
-          }
-          await updateUser((userForm as any).id, data)
-          ElMessage.success('User updated successfully')
-        } else {
-          await createUser(userForm)
-          ElMessage.success('User created successfully')
+    if (!valid) return
+    saving.value = true
+    try {
+      if (isEdit.value) {
+        const data: {
+          real_name: string
+          email: string
+          phone: string
+          status: 'ACTIVE' | 'DISABLED'
+          password?: string
+        } = {
+          real_name: userForm.real_name,
+          email: userForm.email,
+          phone: userForm.phone,
+          status: userForm.status
         }
-        dialogVisible.value = false
-        loadUserList()
-      } finally {
-        saving.value = false
+        if (userForm.password) {
+          data.password = userForm.password
+        }
+        await updateUser(userForm.id as number, data)
+        ElMessage.success('用户更新成功')
+      } else {
+        await createUser(userForm)
+        ElMessage.success('用户创建成功')
       }
+      dialogVisible.value = false
+      loadUserList()
+    } finally {
+      saving.value = false
     }
   })
 }
 
-// 删除用户
 const handleDelete = async (row: User) => {
   try {
-    await ElMessageBox.confirm(
-      `Are you sure to delete user "${row.username}"? This will disable the user.`,
-      'Warning',
-      {
-        confirmButtonText: 'Confirm',
-        cancelButtonText: 'Cancel',
-        type: 'warning'
-      }
-    )
-
+    await ElMessageBox.confirm(`确认删除用户「${row.username}」？删除后将停用该用户。`, '提示', {
+      confirmButtonText: '确认',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
     await deleteUser(row.id)
-    ElMessage.success('User deleted successfully')
+    ElMessage.success('用户删除成功')
     loadUserList()
   } catch (error) {
     if (error !== 'cancel') {
@@ -352,9 +437,15 @@ const handleDelete = async (row: User) => {
   }
 }
 
-// 关闭对话框
+const handleRowCommand = (command: DropdownCommand, row: User) => {
+  if (command === 'delete') {
+    handleDelete(row)
+  }
+}
+
 const handleDialogClose = () => {
   userFormRef.value?.resetFields()
+  userForm.id = undefined
 }
 
 onMounted(() => {
@@ -365,33 +456,82 @@ onMounted(() => {
 <style scoped>
 .user-list-container {
   width: 100%;
-  max-width: 100%;
-  margin: 0;
-  padding: 0;
 }
 
-.user-list-container :deep(.el-card) {
-  width: 100%;
-}
-
-.card-header {
+.page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 16px;
 }
 
-.card-header h3 {
-  margin: 0;
-  font-size: 18px;
-  color: #303133;
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
 }
 
-.search-form {
+.page-subtitle {
+  margin-top: 6px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
   margin-bottom: 20px;
 }
 
-.search-form :deep(.el-form-item) {
-  margin-bottom: 0;
+.summary-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.summary-card__label,
+.summary-card__hint {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.summary-card__value {
+  margin-top: 8px;
+  font-size: 28px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.summary-card__hint {
+  margin-top: 8px;
+}
+
+.search-form {
+  margin-bottom: 16px;
+}
+
+.user-main__title,
+.detail-main__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.user-main__meta,
+.contact-block__meta,
+.status-block__meta,
+.detail-main__meta {
+  margin-top: 4px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.status-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .pagination {
@@ -400,19 +540,133 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
-/* 表格优化 */
-:deep(.el-table) {
+.dialog-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 20px;
+}
+
+.dialog-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 16px;
+}
+
+.dialog-aside {
+  border-left: 1px solid #e5e7eb;
+  padding-left: 20px;
+}
+
+.dialog-summary {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 16px;
+  background: #f8fafc;
+}
+
+.dialog-summary__title,
+.detail-card__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 12px;
+}
+
+.dialog-summary__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.dialog-summary__item:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.dialog-summary__item span,
+.detail-item span {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.dialog-summary__item strong,
+.detail-item strong {
+  color: #111827;
   font-size: 14px;
 }
 
-:deep(.el-table th) {
-  background-color: #fafafa;
-  color: #606266;
-  font-weight: 600;
+.detail-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-:deep(.el-table__body-wrapper) {
-  max-height: calc(100vh - 400px);
-  overflow-y: auto;
+.detail-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 18px 20px;
+  background: #fff;
+}
+
+.detail-card--main {
+  background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+}
+
+.detail-tags {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+:deep(.danger-command) {
+  color: var(--el-color-danger);
+}
+
+@media (max-width: 1200px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dialog-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .dialog-aside {
+    border-left: 0;
+    padding-left: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+  }
+
+  .summary-grid,
+  .dialog-grid,
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
+

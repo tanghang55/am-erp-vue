@@ -1,59 +1,60 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { shallowMount } from '@vue/test-utils'
-import { createPinia, setActivePinia } from 'pinia'
-import { defineComponent } from 'vue'
 import FieldLabelList from '@/modules/system/views/FieldLabelList.vue'
-import { useLocaleStore } from '@/modules/common/stores/localeStore'
 
 vi.mock('@/modules/system/api', () => ({
   getFieldLabelList: vi.fn().mockResolvedValue({
     success: true,
-    data: { items: [], total: 0 }
+    data: {
+      data: [
+        {
+          id: 1,
+          label_key: 'product.list.title',
+          labels: {
+            'zh-CN': '产品列表',
+            'en-US': 'Product List'
+          },
+          updated_at: '2026-03-10 21:00:00'
+        }
+      ],
+      total: 1
+    }
   }),
   createFieldLabel: vi.fn(),
   updateFieldLabel: vi.fn(),
   deleteFieldLabel: vi.fn()
 }))
 
-const Stub = defineComponent({
-  template: '<div><slot /></div>'
-})
-
-const NoSlotStub = defineComponent({
-  template: '<div />'
-})
-
-const InputStub = defineComponent({
-  props: ['placeholder'],
-  template: '<input :placeholder="placeholder" />'
-})
-
 describe('FieldLabelList', () => {
-  it('shows dot-path key placeholder', async () => {
-    setActivePinia(createPinia())
-    const localeStore = useLocaleStore()
-    localeStore.setLocale('en-US')
-
+  it('renders chinese page title and without summary cards', async () => {
     const wrapper = shallowMount(FieldLabelList, {
       global: {
         stubs: {
-          'el-card': Stub,
-          'el-form': Stub,
-          'el-form-item': Stub,
-          'el-table': NoSlotStub,
-          'el-table-column': NoSlotStub,
-          'el-pagination': Stub,
-          'el-dialog': Stub,
-          'el-button': Stub,
-          'el-input': InputStub
+          'el-input': { template: '<input />' },
+          'el-card': { template: '<div><slot name="header" /><slot /></div>' },
+          'el-form': { template: '<form><slot /></form>' },
+          'el-form-item': { template: '<div><slot /></div>' },
+          'el-table': { template: '<div><slot /></div>' },
+          'el-table-column': { template: '<div />' },
+          'el-pagination': { template: '<div />' },
+          'el-dialog': { template: '<div><slot /><slot name="footer" /></div>' },
+          'el-button': { template: '<button><slot /></button>' },
+          'el-dropdown': { template: '<div><slot /><slot name="dropdown" /></div>' },
+          'el-dropdown-menu': { template: '<div><slot /></div>' },
+          'el-dropdown-item': { template: '<button><slot /></button>' }
+        },
+        directives: {
+          loading: {}
         }
       }
     })
 
+    await vi.dynamicImportSettled()
+    await wrapper.vm.$nextTick()
     await wrapper.vm.$nextTick()
 
-    const placeholders = wrapper.findAll('input').map((input) => input.attributes('placeholder'))
-    const matched = placeholders.some((value) => value?.includes('product.list.title'))
-    expect(matched).toBe(true)
+    expect(wrapper.text()).toContain('字段标签')
+    expect(wrapper.findAll('[data-testid="field-label-summary-card"]')).toHaveLength(0)
   })
 })
+

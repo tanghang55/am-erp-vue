@@ -2,49 +2,6 @@
  * System Module TypeScript Types
  */
 
-export interface SettingCatalogItem {
-  key: string
-  default_value: string | null
-  description?: string | null
-  setting_type?: string | null
-}
-
-export interface SystemSetting {
-  id: number
-  scope_type: string
-  scope_id: number
-  setting_key: string
-  setting_type: string
-  value: string
-  description?: string | null
-  created_at: string
-  updated_at: string
-}
-
-export interface SystemSettingsListResponse {
-  scope_type: string
-  scope_id: number
-  items: SystemSetting[]
-  total: number
-  page: number
-  page_size: number
-  catalog: SettingCatalogItem[]
-}
-
-export interface CreateSystemSettingRequest {
-  setting_key: string
-  value: string
-  description?: string
-  setting_type?: string
-  scope_type?: string
-  scope_id?: number
-}
-
-export interface UpdateSystemSettingRequest {
-  value: string
-  description?: string
-}
-
 export interface FieldLabel {
   id: number
   label_key: string
@@ -58,7 +15,7 @@ export interface FieldLabel {
 }
 
 export interface FieldLabelListResponse {
-  items: FieldLabel[]
+  data: FieldLabel[]
   total: number
   page: number
   page_size: number
@@ -152,3 +109,6 @@ export interface UpdateMenuRequest extends Partial<CreateMenuRequest> {}
 export interface UpdateMenuStatusRequest {
   status: string
 }
+
+export * from './monitor'
+export * from './configCenter'

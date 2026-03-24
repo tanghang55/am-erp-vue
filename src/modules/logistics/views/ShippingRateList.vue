@@ -4,52 +4,28 @@
       <!-- 搜索表单 -->
       <el-form :model="searchForm" inline>
         <el-form-item label="物流供应商">
-          <el-select
+          <ProviderSelector
             v-model="searchForm.provider_id"
             placeholder="全部"
             clearable
-            filterable
-            style="width: 200px"
-          >
-            <el-option
-              v-for="provider in providerOptions"
-              :key="provider.id"
-              :label="provider.provider_name"
-              :value="provider.id"
-            />
-          </el-select>
+            :allow-inactive="false"
+          />
         </el-form-item>
         <el-form-item label="起点仓库">
-          <el-select
+          <WarehouseSelector
             v-model="searchForm.origin_warehouse_id"
             placeholder="全部"
             clearable
-            filterable
-            style="width: 180px"
-          >
-            <el-option
-              v-for="warehouse in warehouseOptions"
-              :key="warehouse.id"
-              :label="warehouse.name"
-              :value="warehouse.id"
-            />
-          </el-select>
+            :only-active="true"
+          />
         </el-form-item>
         <el-form-item label="目的地仓库">
-          <el-select
+          <WarehouseSelector
             v-model="searchForm.destination_warehouse_id"
             placeholder="全部"
             clearable
-            filterable
-            style="width: 180px"
-          >
-            <el-option
-              v-for="warehouse in warehouseOptions"
-              :key="warehouse.id"
-              :label="warehouse.name"
-              :value="warehouse.id"
-            />
-          </el-select>
+            :only-active="true"
+          />
         </el-form-item>
         <el-form-item label="运输方式">
           <el-select v-model="searchForm.transport_mode" placeholder="全部" clearable style="width: 120px">
@@ -80,7 +56,6 @@
 
       <!-- 列表表格 -->
       <el-table :data="list" v-loading="loading" border>
-        <el-table-column prop="id" label="ID" width="80" />
         <el-table-column label="报价名称" min-width="200">
           <template #default="{ row }">
             <div style="font-weight: 600; color: #303133; margin-bottom: 4px">
@@ -94,9 +69,9 @@
         <el-table-column label="路线" min-width="200">
           <template #default="{ row }">
             <div style="display: flex; align-items: center; gap: 8px">
-              <span>{{ row.origin_warehouse?.name || '-' }}</span>
+              <span>{{ formatWarehouse(row.origin_warehouse) }}</span>
               <span style="color: #409eff">→</span>
-              <span>{{ row.destination_warehouse?.name || '-' }}</span>
+              <span>{{ formatWarehouse(row.destination_warehouse) }}</span>
             </div>
           </template>
         </el-table-column>
@@ -133,15 +108,24 @@
         </el-table-column>
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
-            <el-tag :type="RATE_STATUS_CONFIG[row.status]?.color">
-              {{ RATE_STATUS_CONFIG[row.status]?.label }}
-            </el-tag>
+            <div class="status-block">
+              <el-tag :type="RATE_STATUS_CONFIG[row.status]?.color">
+                {{ RATE_STATUS_CONFIG[row.status]?.label }}
+              </el-tag>
+              <el-tag v-if="row.deletable === false" type="warning" effect="plain" size="small">不可删除</el-tag>
+              <div v-if="row.reference_count" class="status-block__remark">{{ row.reference_count }} 处引用</div>
+              <div v-else-if="row.deletable === false" class="status-block__remark">{{ row.delete_block_reason || '已被业务数据引用' }}</div>
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
-            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-tooltip :disabled="row.deletable !== false" :content="row.delete_block_reason || '已被业务数据引用，不可删除'">
+              <div class="inline-action">
+                <el-button link type="danger" :disabled="row.deletable === false" @click="handleDelete(row)">删除</el-button>
+              </div>
+            </el-tooltip>
           </template>
         </el-table-column>
       </el-table>
@@ -176,19 +160,11 @@
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="物流供应商" prop="provider_id">
-              <el-select
+              <ProviderSelector
                 v-model="formData.provider_id"
                 placeholder="请选择"
-                filterable
-                style="width: 100%"
-              >
-                <el-option
-                  v-for="provider in providerOptions"
-                  :key="provider.id"
-                  :label="provider.provider_name"
-                  :value="provider.id"
-                />
-              </el-select>
+                :allow-inactive="false"
+              />
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -254,36 +230,20 @@
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="起点仓库" prop="origin_warehouse_id">
-              <el-select
+              <WarehouseSelector
                 v-model="formData.origin_warehouse_id"
                 placeholder="请选择起点仓库"
-                filterable
-                style="width: 100%"
-              >
-                <el-option
-                  v-for="warehouse in warehouseOptions"
-                  :key="warehouse.id"
-                  :label="warehouse.name"
-                  :value="warehouse.id"
-                />
-              </el-select>
+                :only-active="true"
+              />
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="目的地仓库" prop="destination_warehouse_id">
-              <el-select
+              <WarehouseSelector
                 v-model="formData.destination_warehouse_id"
                 placeholder="请选择目的地仓库"
-                filterable
-                style="width: 100%"
-              >
-                <el-option
-                  v-for="warehouse in warehouseOptions"
-                  :key="warehouse.id"
-                  :label="warehouse.name"
-                  :value="warehouse.id"
-                />
-              </el-select>
+                :only-active="true"
+              />
             </el-form-item>
           </el-col>
         </el-row>
@@ -426,23 +386,27 @@ import {
   deleteShippingRate,
   getServicesByTransportMode
 } from '../api'
-import { getProviders } from '../api'
-import { getActiveWarehouses } from '@/modules/inventory/api'
 import type {
   ShippingRate,
   RateListParams,
   CreateRateParams,
-  LogisticsProvider,
   LogisticsService,
   TransportMode
 } from '../types'
-import type { Warehouse } from '@/modules/inventory/types'
 import {
   TRANSPORT_MODE_CONFIG,
   PRICING_METHOD_CONFIG,
   RATE_STATUS_CONFIG
 } from '../types'
 import { parsePaginatedResponse } from '@/utils/api'
+import WarehouseSelector from '@/modules/inventory/components/WarehouseSelector.vue'
+import ProviderSelector from '@/modules/logistics/components/ProviderSelector.vue'
+
+const formatWarehouse = (warehouse?: { name?: string; code?: string } | null) => {
+  if (!warehouse) return '-'
+  if (warehouse.name && warehouse.code) return `${warehouse.name} (${warehouse.code})`
+  return warehouse.name || warehouse.code || '-'
+}
 
 // 搜索表单
 const searchForm = reactive<RateListParams>({
@@ -463,8 +427,6 @@ const pagination = reactive({
 })
 
 // 选项数据
-const providerOptions = ref<LogisticsProvider[]>([])
-const warehouseOptions = ref<Warehouse[]>([])
 const serviceOptions = ref<LogisticsService[]>([])
 
 // 对话框
@@ -527,13 +489,7 @@ const formRules: FormRules = {
 // 加载选项数据
 const loadOptions = async () => {
   try {
-    const [providersRes, warehousesRes] = await Promise.all([
-      getProviders({ page: 1, page_size: 1000, status: 'ACTIVE' }),
-      getActiveWarehouses()
-    ])
-    const { items } = parsePaginatedResponse(providersRes)
-    providerOptions.value = items
-    warehouseOptions.value = warehousesRes.data || []
+    // 物流供应商/仓库都已改成选择器，这里只保留服务相关加载。
   } catch (error: any) {
     if (!error._handled) {
       ElMessage.error(error.message || '加载选项数据失败')
@@ -646,6 +602,10 @@ const handleEdit = async (row: ShippingRate) => {
 
 // 删除
 const handleDelete = async (row: ShippingRate) => {
+  if (row.deletable === false) {
+    ElMessage.warning(row.delete_block_reason || '已被发货单引用，不可删除')
+    return
+  }
   try {
     await ElMessageBox.confirm(
       '确定要删除此报价吗？',
@@ -710,6 +670,17 @@ onMounted(() => {
 <style scoped>
 .rate-list {
   padding: 20px;
+}
+
+.status-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.status-block__remark {
+  font-size: 12px;
+  color: #909399;
 }
 
 .pagination {

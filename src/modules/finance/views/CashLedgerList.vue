@@ -1,147 +1,138 @@
 <template>
-  <div class="cash-ledger-container">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>{{ labels.title }}</span>
-          <el-button type="primary" @click="handleCreate">{{ labels.create }}</el-button>
-        </div>
-      </template>
+  <div class="cash-ledger-page">
+    <section class="page-head">
+      <div>
+        <h1 class="page-head__title">现金流水</h1>
+      </div>
+      <div class="page-head__actions">
+        <el-button plain @click="router.push({ name: 'finance-cash-ledger-audit' })">操作日志</el-button>
+        <el-button type="primary" @click="handleCreate">新增流水</el-button>
+      </div>
+    </section>
 
-      <!-- 汇总卡片 -->
-      <el-row :gutter="16" style="margin-bottom: 20px">
-        <el-col :span="6">
-          <el-statistic :title="labels.totalIncome" :value="summary.total_income" :precision="2" prefix="¥">
-            <template #suffix>
-              <span style="font-size: 12px; color: #909399">({{ summary.income_count }}{{ labels.countUnit }})</span>
-            </template>
-          </el-statistic>
-        </el-col>
-        <el-col :span="6">
-          <el-statistic :title="labels.totalExpense" :value="summary.total_expense" :precision="2" prefix="¥">
-            <template #suffix>
-              <span style="font-size: 12px; color: #909399">({{ summary.expense_count }}{{ labels.countUnit }})</span>
-            </template>
-          </el-statistic>
-        </el-col>
-        <el-col :span="6">
-          <el-statistic
-            :title="labels.netProfit"
-            :value="summary.net_profit"
-            :precision="2"
-            prefix="¥"
-            :value-style="{ color: summary.net_profit >= 0 ? '#67C23A' : '#F56C6C' }"
-          />
-        </el-col>
-      </el-row>
-
-      <!-- 筛选区域 -->
-      <el-form :inline="true" :model="queryParams" class="filter-form">
-        <el-form-item :label="labels.ledgerType">
-          <el-select
-            v-model="queryParams.ledger_type"
-            :placeholder="labels.all"
+    <section class="panel panel--search">
+      <el-form :inline="true" class="filter-form">
+        <el-form-item class="filter-form__keyword">
+          <el-input
+            v-model="queryParams.keyword"
+            placeholder="描述 / trace / 节点关键词"
             clearable
+            style="width: 240px"
+            @keyup.enter="handleQuery"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-select v-model="queryParams.ledger_type" placeholder="收支类型" clearable style="width: 120px">
+            <el-option v-for="item in ledgerTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-select v-model="queryParams.category" placeholder="流水类别" clearable style="width: 150px">
+            <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-select v-model="queryParams.reference_type" placeholder="来源单据" clearable style="width: 140px">
+            <el-option v-for="item in referenceTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-input
+            v-model="queryParams.marketplace"
+            clearable
+            placeholder="站点"
             style="width: 120px"
-          >
-            <el-option
-              v-for="item in ledgerTypeOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
+            @keyup.enter="handleQuery"
+          />
         </el-form-item>
-
-        <el-form-item :label="labels.category">
-          <el-select v-model="queryParams.category" :placeholder="labels.all" clearable style="width: 140px">
-            <el-option
-              v-for="item in categoryOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
+        <el-form-item>
+          <el-input
+            v-model="queryParams.occurred_node"
+            clearable
+            placeholder="发生节点"
+            style="width: 160px"
+            @keyup.enter="handleQuery"
+          />
         </el-form-item>
-
-        <el-form-item :label="labels.dateRange">
+        <el-form-item>
           <el-date-picker
             v-model="dateRange"
             type="daterange"
-            :range-separator="labels.to"
-            :start-placeholder="labels.startDate"
-            :end-placeholder="labels.endDate"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
             format="YYYY-MM-DD"
             value-format="YYYY-MM-DD"
             @change="handleDateRangeChange"
           />
         </el-form-item>
-
-        <el-form-item :label="labels.keyword">
-          <el-input
-            v-model="queryParams.keyword"
-            :placeholder="labels.keywordPlaceholder"
-            clearable
-            style="width: 200px"
-          />
-        </el-form-item>
-
-        <el-form-item>
-          <el-button type="primary" @click="handleQuery">{{ labels.search }}</el-button>
-          <el-button @click="handleReset">{{ labels.reset }}</el-button>
+        <el-form-item class="filter-form__actions">
+          <el-button type="primary" @click="handleQuery">查询</el-button>
+          <el-button @click="handleReset">重置</el-button>
         </el-form-item>
       </el-form>
+    </section>
 
-      <!-- 流水列表 -->
+    <section class="panel panel--body">
       <el-table v-loading="loading" :data="ledgerList" border stripe>
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column :label="labels.ledgerType" width="80">
+        <el-table-column label="发生时间" width="170">
+          <template #default="{ row }">{{ formatDateTime(row.occurred_at) }}</template>
+        </el-table-column>
+        <el-table-column label="收支金额" min-width="220">
           <template #default="{ row }">
-            <el-tag :type="getLedgerTypeColor(row.ledger_type)">
-              {{ getLedgerTypeLabel(row.ledger_type) }}
-            </el-tag>
+            <div class="amount-cell">
+              <div>
+                <el-tag :type="row.ledger_type === LedgerType.INCOME ? 'success' : 'danger'">
+                  {{ getLedgerTypeLabel(row.ledger_type) }}
+                </el-tag>
+              </div>
+              <div :class="row.ledger_type === LedgerType.INCOME ? 'amount-cell__value--income' : 'amount-cell__value--expense'">
+                {{ row.ledger_type === LedgerType.INCOME ? '+' : '-' }}{{ row.original_currency }} {{ formatAmount(row.original_amount) }}
+              </div>
+              <div class="amount-cell__meta">
+                基准 {{ row.base_currency }} {{ formatAmount(row.base_amount) }}
+                <span v-if="Number(row.fx_rate || 1) !== 1"> / 汇率 {{ formatAmount(row.fx_rate, 6) }}</span>
+              </div>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column :label="labels.category" width="100">
+        <el-table-column label="业务信息" min-width="320">
           <template #default="{ row }">
-            {{ getLedgerCategoryLabel(row.category) }}
+            <div class="detail-cell">
+              <div class="detail-cell__primary">{{ row.description || getLedgerCategoryLabel(row.category) }}</div>
+              <div class="detail-cell__secondary">{{ getLedgerCategoryLabel(row.category) }}</div>
+              <div class="detail-cell__secondary">{{ formatOccurredNode(row.occurred_node) }} / {{ row.marketplace || '全部站点' }}</div>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column :label="labels.amount" width="140" align="right">
+        <el-table-column label="来源信息" min-width="180">
           <template #default="{ row }">
-            <span
-              :style="{
-                color: row.ledger_type === 'INCOME' ? '#67C23A' : '#F56C6C',
-                fontWeight: 'bold'
-              }"
-            >
-              {{ row.ledger_type === 'INCOME' ? '+' : '-' }}{{ row.currency }} {{ row.amount }}
-            </span>
+            <div class="detail-cell">
+              <div class="detail-cell__primary">{{ formatReferenceType(row.reference_type) }}</div>
+              <div class="detail-cell__secondary">{{ row.reference_id ? `#${row.reference_id}` : '-' }}</div>
+              <div class="detail-cell__secondary">{{ row.trace_id || '-' }}</div>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="description" :label="labels.description" min-width="200" show-overflow-tooltip />
-        <el-table-column :label="labels.occurredAt" width="180">
+        <el-table-column label="记录信息" min-width="170">
           <template #default="{ row }">
-            {{ formatDateTime(row.occurred_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column :label="labels.reference" width="150">
-          <template #default="{ row }">
-            <span v-if="row.reference_type">
-              {{ row.reference_type }} #{{ row.reference_id }}
-            </span>
-            <span v-else style="color: #909399">-</span>
-          </template>
-        </el-table-column>
-        <el-table-column :label="labels.actions" width="150" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="handleEdit(row)">{{ labels.edit }}</el-button>
-            <el-button link type="danger" @click="handleDelete(row)">{{ labels.delete }}</el-button>
+            <div class="detail-cell">
+              <div class="detail-cell__primary">{{ row.created_by_name || `用户#${row.created_by}` }}</div>
+              <div class="detail-cell__secondary">{{ formatDateTime(row.created_at) }}</div>
+            </div>
           </template>
         </el-table-column>
       </el-table>
 
-      <!-- 分页 -->
+      <div class="table-summary-line">
+        <span class="summary-value summary-value--income">收入 {{ currencyPrefix }}{{ formatAmount(summary.total_income) }}</span>
+        <span class="summary-value summary-value--expense">支出 {{ currencyPrefix }}{{ formatAmount(summary.total_expense) }}</span>
+        <span :class="summary.net_profit >= 0 ? 'summary-value summary-value--income' : 'summary-value summary-value--expense'">
+          净额 {{ currencyPrefix }}{{ formatAmount(summary.net_profit) }}
+        </span>
+        <span>共 {{ summary.income_count + summary.expense_count }} 笔</span>
+      </div>
+
       <div class="pagination">
         <el-pagination
           v-model:current-page="queryParams.page"
@@ -149,248 +140,100 @@
           :total="total"
           :page-sizes="[10, 20, 50, 100]"
           layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleQuery"
-          @current-change="handleQuery"
+          @size-change="handleFactsPageChange"
+          @current-change="fetchList"
         />
       </div>
-    </el-card>
+    </section>
 
-    <!-- 新增/编辑对话框 -->
-    <el-dialog
-      v-model="dialogVisible"
-      :title="dialogTitle"
-      width="600px"
-      @close="handleDialogClose"
-    >
-      <el-form :model="formData" :rules="formRules" ref="formRef" label-width="100px">
-        <el-form-item :label="labels.ledgerType" prop="ledger_type">
+    <el-dialog v-model="dialogVisible" title="新增现金流水" width="680px" @close="handleDialogClose">
+      <el-form ref="formRef" :model="formData" :rules="formRules" label-width="110px">
+        <el-form-item label="流水类型" prop="ledger_type">
           <el-radio-group v-model="formData.ledger_type" @change="handleLedgerTypeChange">
-            <el-radio
-              v-for="item in ledgerTypeOptions"
-              :key="item.value"
-              :label="item.value"
-            >
-              {{ item.label }}
-            </el-radio>
+            <el-radio v-for="item in ledgerTypeOptions" :key="item.value" :label="item.value">{{ item.label }}</el-radio>
           </el-radio-group>
         </el-form-item>
-
-        <el-form-item :label="labels.category" prop="category">
-          <el-select v-model="formData.category" :placeholder="labels.categoryPlaceholder" style="width: 100%">
-            <el-option
-              v-for="item in formCategoryOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
+        <el-form-item label="类别" prop="category">
+          <el-select v-model="formData.category" placeholder="请选择类别" style="width: 100%">
+            <el-option v-for="item in formCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
-
-        <el-form-item :label="labels.amount" prop="amount">
-          <el-input-number
-            v-model="formData.amount"
-            :precision="2"
-            :step="0.01"
-            :min="0.01"
-            style="width: 100%"
-          />
+        <el-form-item label="金额" prop="amount">
+          <el-input-number v-model="formData.amount" :precision="2" :step="0.01" :min="0.01" style="width: 100%" />
         </el-form-item>
-
-        <el-form-item :label="labels.currency" prop="currency">
-          <el-input v-model="formData.currency" placeholder="CNY" />
+        <el-form-item label="货币" prop="currency">
+          <el-input v-model="formData.currency" />
         </el-form-item>
-
-        <el-form-item :label="labels.occurredAt" prop="occurred_at">
+        <el-form-item label="站点">
+          <el-input v-model="formData.marketplace" placeholder="如 US/JP" />
+        </el-form-item>
+        <el-form-item label="发生节点">
+          <el-input v-model="formData.occurred_node" placeholder="如 PROCUREMENT / SHIPMENT / MANUAL" />
+        </el-form-item>
+        <el-form-item label="来源单据类型">
+          <el-select v-model="formData.reference_type" placeholder="可选" clearable style="width: 100%">
+            <el-option v-for="item in referenceTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="来源单据ID">
+          <el-input-number v-model="formData.reference_id" :min="1" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="发生时间" prop="occurred_at">
           <el-date-picker
             v-model="formData.occurred_at"
             type="datetime"
-            :placeholder="labels.occurredAtPlaceholder"
+            placeholder="选择日期时间"
             format="YYYY-MM-DD HH:mm:ss"
             value-format="YYYY-MM-DD HH:mm:ss"
             style="width: 100%"
           />
         </el-form-item>
-
-        <el-form-item :label="labels.description">
+        <el-form-item label="描述">
           <el-input
             v-model="formData.description"
             type="textarea"
             :rows="3"
-            :placeholder="labels.descriptionPlaceholder"
+            placeholder="说明这笔钱是什么、为什么发生"
           />
         </el-form-item>
       </el-form>
 
       <template #footer>
-        <el-button @click="dialogVisible = false">{{ labels.cancel }}</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="submitting">{{ labels.confirm }}</el-button>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="submitting" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
-import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import {
-  getCashLedgerList,
-  createCashLedger,
-  updateCashLedger,
-  deleteCashLedger,
-  getCashLedgerSummary
-} from '../api'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { useFinanceBaseCurrency } from '../composables/useFinanceBaseCurrency'
+import { createCashLedger, getCashLedgerList, getCashLedgerSummary } from '../api'
 import {
   type CashLedger,
-  type CreateCashLedgerRequest,
   type CashLedgerQueryParams,
   type CashLedgerSummary,
+  type CreateCashLedgerRequest,
+  LedgerCategory,
   LedgerType,
-  LedgerCategory
+  ReferenceType
 } from '../types'
-import { useLocaleStore } from '@/modules/common/stores/localeStore'
 
-const localeStore = useLocaleStore()
+const router = useRouter()
+const { baseCurrency, currencyPrefix, loadBaseCurrency } = useFinanceBaseCurrency()
 
-const labels = computed(() => {
-  if (localeStore.isEnglish) {
-    return {
-      title: 'Cash Ledger',
-      create: 'New Entry',
-      totalIncome: 'Total Income',
-      totalExpense: 'Total Expense',
-      netProfit: 'Net Profit',
-      countUnit: 'items',
-      ledgerType: 'Type',
-      category: 'Category',
-      amount: 'Amount',
-      description: 'Description',
-      occurredAt: 'Occurred At',
-      reference: 'Reference',
-      actions: 'Actions',
-      edit: 'Edit',
-      delete: 'Delete',
-      all: 'All',
-      dateRange: 'Date Range',
-      to: 'to',
-      startDate: 'Start Date',
-      endDate: 'End Date',
-      keyword: 'Keyword',
-      keywordPlaceholder: 'Search description',
-      search: 'Search',
-      reset: 'Reset',
-      categoryPlaceholder: 'Select category',
-      currency: 'Currency',
-      occurredAtPlaceholder: 'Select date/time',
-      descriptionPlaceholder: 'Enter description',
-      cancel: 'Cancel',
-      confirm: 'Confirm',
-      createdTitle: 'New Entry',
-      editTitle: 'Edit Entry',
-      deleteConfirm: 'Delete entry #{id}?',
-      confirmTitle: 'Confirm',
-      confirmText: 'Confirm',
-      cancelText: 'Cancel',
-      deleted: 'Deleted',
-      updated: 'Updated',
-      created: 'Created',
-      loadFail: 'Failed to load ledger list',
-      deleteFail: 'Delete failed',
-      submitFail: 'Operation failed',
-      typeRequired: 'Please select ledger type',
-      categoryRequired: 'Please select category',
-      amountRequired: 'Please enter amount',
-      currencyRequired: 'Please enter currency'
-    }
-  }
-  return {
-    title: '现金流水管理',
-    create: '新增流水',
-    totalIncome: '总收入',
-    totalExpense: '总支出',
-    netProfit: '净利润',
-    countUnit: '笔',
-    ledgerType: '流水类型',
-    category: '类别',
-    amount: '金额',
-    description: '描述',
-    occurredAt: '发生日期',
-    reference: '关联单据',
-    actions: '操作',
-    edit: '编辑',
-    delete: '删除',
-    all: '全部',
-    dateRange: '日期范围',
-    to: '至',
-    startDate: '开始日期',
-    endDate: '结束日期',
-    keyword: '关键词',
-    keywordPlaceholder: '搜索描述',
-    search: '查询',
-    reset: '重置',
-    categoryPlaceholder: '请选择类别',
-    currency: '货币',
-    occurredAtPlaceholder: '选择日期时间',
-    descriptionPlaceholder: '请输入描述',
-    cancel: '取消',
-    confirm: '确定',
-    createdTitle: '新增流水',
-    editTitle: '编辑流水',
-    deleteConfirm: '确定要删除流水 #{id} 吗?',
-    confirmTitle: '提示',
-    confirmText: '确定',
-    cancelText: '取消',
-    deleted: '删除成功',
-    updated: '更新成功',
-    created: '创建成功',
-    loadFail: '获取流水列表失败',
-    deleteFail: '删除失败',
-    submitFail: '操作失败',
-    typeRequired: '请选择流水类型',
-    categoryRequired: '请选择类别',
-    amountRequired: '请输入金额',
-    currencyRequired: '请输入货币'
-  }
-})
-
-const ledgerTypeOptions = computed(() => {
-  if (localeStore.isEnglish) {
-    return [
-      { label: 'Income', value: LedgerType.INCOME, type: 'success' },
-      { label: 'Expense', value: LedgerType.EXPENSE, type: 'danger' }
-    ]
-  }
-  return [
-    { label: '收入', value: LedgerType.INCOME, type: 'success' },
-    { label: '支出', value: LedgerType.EXPENSE, type: 'danger' }
-  ]
-})
-
-const categoryLabels = computed(() => {
-  if (localeStore.isEnglish) {
-    return {
-      SALES_REVENUE: 'Sales Revenue',
-      PURCHASE_COST: 'Purchase Cost',
-      SHIPPING_FEE: 'Shipping Fee',
-      PACKAGING_COST: 'Packaging Cost',
-      OTHER_INCOME: 'Other Income',
-      OTHER_EXPENSE: 'Other Expense'
-    }
-  }
-  return {
-    SALES_REVENUE: '销售收入',
-    PURCHASE_COST: '采购成本',
-    SHIPPING_FEE: '运费',
-    PACKAGING_COST: '包装成本',
-    OTHER_INCOME: '其他收入',
-    OTHER_EXPENSE: '其他支出'
-  }
-})
-
-// 数据
 const loading = ref(false)
 const ledgerList = ref<CashLedger[]>([])
 const total = ref(0)
 const dateRange = ref<[string, string] | null>(null)
+const dialogVisible = ref(false)
+const submitting = ref(false)
+const formRef = ref<FormInstance>()
+
 const summary = ref<CashLedgerSummary>({
   total_income: 0,
   income_count: 0,
@@ -399,120 +242,101 @@ const summary = ref<CashLedgerSummary>({
   net_profit: 0
 })
 
-// 查询参数
 const queryParams = reactive<CashLedgerQueryParams>({
   page: 1,
-  page_size: 20
+  page_size: 10
 })
 
-// 对话框
-const dialogVisible = ref(false)
-const dialogTitle = ref('')
-const submitting = ref(false)
-const formRef = ref<FormInstance>()
-const editingId = ref<number | null>(null)
-
-// 表单数据
 const formData = reactive<CreateCashLedgerRequest>({
   ledger_type: LedgerType.EXPENSE,
-  category: 'PURCHASE_COST' as any,
+  category: LedgerCategory.PURCHASE_COST,
   amount: 0,
-  currency: 'CNY',
+  currency: '',
   occurred_at: new Date().toISOString().slice(0, 19).replace('T', ' ')
 })
 
-// 表单验证规则
-const formRules = computed<FormRules>(() => ({
-  ledger_type: [{ required: true, message: labels.value.typeRequired, trigger: 'change' }],
-  category: [{ required: true, message: labels.value.categoryRequired, trigger: 'change' }],
-  amount: [{ required: true, message: labels.value.amountRequired, trigger: 'blur' }],
-  currency: [{ required: true, message: labels.value.currencyRequired, trigger: 'blur' }]
-}))
+const formRules: FormRules = {
+  ledger_type: [{ required: true, message: '请选择流水类型', trigger: 'change' }],
+  category: [{ required: true, message: '请选择类别', trigger: 'change' }],
+  amount: [{ required: true, message: '请输入金额', trigger: 'blur' }],
+  currency: [{ required: true, message: '请输入货币', trigger: 'blur' }]
+}
 
-// 计算属性
-const allCategoryOptions = computed(() => {
-  const labelsMap = categoryLabels.value as Record<string, string>
-  return [
-    { label: labelsMap[LedgerCategory.SALES_REVENUE], value: LedgerCategory.SALES_REVENUE, ledger_type: LedgerType.INCOME },
-    { label: labelsMap[LedgerCategory.PURCHASE_COST], value: LedgerCategory.PURCHASE_COST, ledger_type: LedgerType.EXPENSE },
-    { label: labelsMap[LedgerCategory.SHIPPING_FEE], value: LedgerCategory.SHIPPING_FEE, ledger_type: LedgerType.EXPENSE },
-    { label: labelsMap[LedgerCategory.PACKAGING_COST], value: LedgerCategory.PACKAGING_COST, ledger_type: LedgerType.EXPENSE },
-    { label: labelsMap[LedgerCategory.OTHER_INCOME], value: LedgerCategory.OTHER_INCOME, ledger_type: LedgerType.INCOME },
-    { label: labelsMap[LedgerCategory.OTHER_EXPENSE], value: LedgerCategory.OTHER_EXPENSE, ledger_type: LedgerType.EXPENSE }
-  ]
-})
+const ledgerTypeOptions = [
+  { label: '收入', value: LedgerType.INCOME },
+  { label: '支出', value: LedgerType.EXPENSE }
+]
+
+const allCategoryOptions = [
+  { label: '销售收入', value: LedgerCategory.SALES_REVENUE, ledger_type: LedgerType.INCOME },
+  { label: '采购成本', value: LedgerCategory.PURCHASE_COST, ledger_type: LedgerType.EXPENSE },
+  { label: '运费', value: LedgerCategory.SHIPPING_FEE, ledger_type: LedgerType.EXPENSE },
+  { label: '包装成本', value: LedgerCategory.PACKAGING_COST, ledger_type: LedgerType.EXPENSE },
+  { label: '其他收入', value: LedgerCategory.OTHER_INCOME, ledger_type: LedgerType.INCOME },
+  { label: '其他支出', value: LedgerCategory.OTHER_EXPENSE, ledger_type: LedgerType.EXPENSE }
+]
+
+const referenceTypeOptions = [
+  { label: '采购单', value: ReferenceType.PURCHASE_ORDER },
+  { label: '发货单', value: ReferenceType.SHIPMENT },
+  { label: '手工', value: ReferenceType.MANUAL }
+]
 
 const categoryOptions = computed(() => {
-  if (queryParams.ledger_type) {
-    return allCategoryOptions.value.filter(item => item.ledger_type === queryParams.ledger_type)
-  }
-  return allCategoryOptions.value
+  if (!queryParams.ledger_type) return allCategoryOptions
+  return allCategoryOptions.filter(item => item.ledger_type === queryParams.ledger_type)
 })
 
-const formCategoryOptions = computed(() => {
-  return allCategoryOptions.value.filter(item => item.ledger_type === formData.ledger_type)
-})
+const formCategoryOptions = computed(() => allCategoryOptions.filter(item => item.ledger_type === formData.ledger_type))
 
-const getLedgerTypeLabel = (type: LedgerType) => {
-  const match = ledgerTypeOptions.value.find(item => item.value === type)
-  return match?.label || type
-}
-
-const getLedgerTypeColor = (type: LedgerType) => {
-  const match = ledgerTypeOptions.value.find(item => item.value === type)
-  return match?.type || 'info'
-}
-
-const getLedgerCategoryLabel = (category: LedgerCategory) => {
-  const labelsMap = categoryLabels.value as Record<string, string>
-  return labelsMap[category] || category
-}
-
-// 方法
 const fetchList = async () => {
   loading.value = true
   try {
     const res = await getCashLedgerList(queryParams)
-    ledgerList.value = res.data.items
+    ledgerList.value = res.data.data
     total.value = res.data.total
-  } catch (error: any) {
-    ElMessage.error(`${labels.value.loadFail}: ${error.message}`)
   } finally {
     loading.value = false
   }
 }
 
 const fetchSummary = async () => {
-  try {
-    const res = await getCashLedgerSummary({
-      date_from: queryParams.date_from,
-      date_to: queryParams.date_to
-    })
-    summary.value = res.data
-  } catch (error: any) {
-    console.error('Failed to load summary:', error)
+  const params = {
+    ledger_type: queryParams.ledger_type,
+    category: queryParams.category,
+    marketplace: queryParams.marketplace,
+    occurred_node: queryParams.occurred_node,
+    keyword: queryParams.keyword,
+    reference_type: queryParams.reference_type,
+    reference_id: queryParams.reference_id,
+    date_from: queryParams.date_from,
+    date_to: queryParams.date_to
   }
+  const summaryResp = await getCashLedgerSummary(params)
+  summary.value = summaryResp.data
 }
 
-const handleQuery = () => {
+const handleQuery = async () => {
   queryParams.page = 1
-  fetchList()
-  fetchSummary()
+  await Promise.all([fetchList(), fetchSummary()])
 }
 
-const handleReset = () => {
+const handleReset = async () => {
   Object.assign(queryParams, {
     page: 1,
-    page_size: 20,
+    page_size: 10,
     ledger_type: undefined,
     category: undefined,
+    marketplace: undefined,
+    occurred_node: undefined,
     keyword: undefined,
     date_from: undefined,
-    date_to: undefined
+    date_to: undefined,
+    reference_type: undefined,
+    reference_id: undefined
   })
   dateRange.value = null
-  fetchList()
-  fetchSummary()
+  await Promise.all([fetchList(), fetchSummary()])
 }
 
 const handleDateRangeChange = (value: [string, string] | null) => {
@@ -526,71 +350,31 @@ const handleDateRangeChange = (value: [string, string] | null) => {
 }
 
 const handleCreate = () => {
-  dialogTitle.value = labels.value.createdTitle
-  editingId.value = null
   resetForm()
   dialogVisible.value = true
 }
 
-const handleEdit = (row: CashLedger) => {
-  dialogTitle.value = labels.value.editTitle
-  editingId.value = row.id
-  Object.assign(formData, {
-    ledger_type: row.ledger_type,
-    category: row.category,
-    amount: row.amount,
-    currency: row.currency,
-    description: row.description,
-    occurred_at: row.occurred_at
-  })
-  dialogVisible.value = true
-}
-
-const handleDelete = async (row: CashLedger) => {
-  try {
-    await ElMessageBox.confirm(labels.value.deleteConfirm.replace('{id}', String(row.id)), labels.value.confirmTitle, {
-      confirmButtonText: labels.value.confirmText,
-      cancelButtonText: labels.value.cancelText,
-      type: 'warning'
-    })
-
-    await deleteCashLedger(row.id)
-    ElMessage.success(labels.value.deleted)
-    fetchList()
-    fetchSummary()
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(`${labels.value.deleteFail}: ${error.message}`)
-    }
-  }
-}
-
 const handleLedgerTypeChange = () => {
-  // 清空类别选择
-  formData.category = '' as any
+  formData.category = '' as LedgerCategory
+}
+
+const handleFactsPageChange = async () => {
+  queryParams.page = 1
+  await fetchList()
 }
 
 const handleSubmit = async () => {
   if (!formRef.value) return
-
   await formRef.value.validate(async (valid) => {
     if (!valid) return
-
     submitting.value = true
     try {
-      if (editingId.value) {
-        await updateCashLedger(editingId.value, formData)
-        ElMessage.success(labels.value.updated)
-      } else {
-        await createCashLedger(formData)
-        ElMessage.success(labels.value.created)
-      }
-
+      await createCashLedger(formData)
+      ElMessage.success('创建成功')
       dialogVisible.value = false
-      fetchList()
-      fetchSummary()
+      await Promise.all([fetchList(), fetchSummary()])
     } catch (error: any) {
-      ElMessage.error(`${labels.value.submitFail}: ${error.message}`)
+      ElMessage.error(error.message || '创建失败')
     } finally {
       submitting.value = false
     }
@@ -605,9 +389,11 @@ const handleDialogClose = () => {
 const resetForm = () => {
   Object.assign(formData, {
     ledger_type: LedgerType.EXPENSE,
-    category: '' as any,
+    category: '' as LedgerCategory,
     amount: 0,
-    currency: 'CNY',
+    currency: baseCurrency.value,
+    marketplace: undefined,
+    occurred_node: undefined,
     reference_type: undefined,
     reference_id: undefined,
     description: undefined,
@@ -615,35 +401,209 @@ const resetForm = () => {
   })
 }
 
-const formatDateTime = (dateStr: string) => {
+const getLedgerTypeLabel = (type: LedgerType) => (type === LedgerType.INCOME ? '收入' : '支出')
+
+const getLedgerCategoryLabel = (category: LedgerCategory | string) => {
+  const map: Record<string, string> = {
+    SALES_REVENUE: '销售收入',
+    PURCHASE_COST: '采购成本',
+    SHIPPING_FEE: '运费',
+    PACKAGING_COST: '包装成本',
+    OTHER_INCOME: '其他收入',
+    OTHER_EXPENSE: '其他支出'
+  }
+  return map[category] || category
+}
+
+const formatOccurredNode = (value?: string | null) => {
+  if (!value) return '未标记节点'
+  const map: Record<string, string> = {
+    MANUAL: '手工录入',
+    REVERSED: '冲销',
+    PROCUREMENT: '采购',
+    SHIPMENT: '发货',
+    PROFIT: '利润',
+    CASH_LEDGER: '现金流水'
+  }
+  return map[value] || value
+}
+
+const formatReferenceType = (value?: string | null) => {
+  if (!value) return '无关联单据'
+  const map: Record<string, string> = {
+    PURCHASE_ORDER: '采购单',
+    SHIPMENT: '发货单',
+    MANUAL: '手工'
+  }
+  return map[value] || value
+}
+
+const formatDateTime = (dateStr?: string) => {
+  if (!dateStr) return '-'
   return dateStr.replace('T', ' ').slice(0, 19)
 }
 
-onMounted(() => {
-  dialogTitle.value = labels.value.createdTitle
-  fetchList()
-  fetchSummary()
+const formatAmount = (value: number, digits = 2) => Number(value || 0).toFixed(digits)
+
+onMounted(async () => {
+  await loadBaseCurrency()
+  if (!formData.currency) {
+    formData.currency = baseCurrency.value
+  }
+  await Promise.all([fetchList(), fetchSummary()])
 })
 </script>
 
 <style scoped>
-.cash-ledger-container {
-  padding: 20px;
+.cash-ledger-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.card-header {
+.page-head {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  align-items: center;
+  gap: 16px;
+}
+
+.page-head__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.page-head__subtitle {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.page-head__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.panel {
+  padding: 0;
+}
+
+.panel + .panel {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 16px;
+}
+
+.panel--body {
+  padding-bottom: 12px;
+}
+
+.panel__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.panel__title {
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.panel__meta,
+.amount-cell__meta,
+.detail-cell__secondary,
+.audit-change-text {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .filter-form {
-  margin-bottom: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.table-summary-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 10px 2px 0;
+  color: #475569;
+  font-size: 13px;
+}
+
+.summary-value {
+  font-weight: 700;
+}
+
+.summary-value--income {
+  color: #15803d;
+}
+
+.summary-value--expense {
+  color: #dc2626;
+}
+
+.amount-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.amount-cell__value--income {
+  color: #15803d;
+  font-weight: 700;
+}
+
+.amount-cell__value--expense {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.detail-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.detail-cell__primary {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.filter-form__actions {
+  margin-left: 4px;
+}
+
+.audit-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .pagination {
-  margin-top: 16px;
+  margin-top: 12px;
   display: flex;
   justify-content: flex-end;
+}
+
+@media (max-width: 900px) {
+  .page-head {
+    flex-direction: column;
+  }
+
+  .page-head__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 </style>

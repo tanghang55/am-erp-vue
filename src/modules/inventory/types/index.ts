@@ -1,6 +1,6 @@
 // Inventory module type definitions
 
-import type { Sku } from '@/modules/product/types'
+import type { ProductSummary } from '@/modules/product/types'
 
 export interface Warehouse {
   id: number
@@ -18,11 +18,14 @@ export interface Warehouse {
   updated_by?: number
   created_at: string
   updated_at: string
+  reference_count?: number
+  deletable?: boolean
+  delete_block_reason?: string
 }
 
 export interface InventoryBalance {
   id: number
-  sku_id: number
+  product_id: number
   warehouse_id: number
   available_quantity: number
   reserved_quantity: number
@@ -39,14 +42,47 @@ export interface InventoryBalance {
   last_movement_at?: string
   created_at: string
   updated_at: string
-  sku?: Sku
+  product?: ProductSummary
   warehouse?: Warehouse
+}
+
+export type InventoryLotStatus = 'OPEN' | 'CLOSED'
+
+export interface InventoryLot {
+  id: number
+  product_id: number
+  warehouse_id: number
+  lot_no: string
+  source_type?: string
+  source_id?: number
+  source_number?: string
+  received_at: string
+  unit_cost?: number
+  qty_in: number
+  qty_available: number
+  qty_reserved: number
+  qty_consumed: number
+  status: InventoryLotStatus
+  remark?: string
+  created_at: string
+  updated_at: string
+  product?: {
+    id: number
+    seller_sku: string
+    title: string
+    asin?: string
+  }
+  warehouse?: {
+    id: number
+    code: string
+    name: string
+  }
 }
 
 export interface InventoryMovement {
   id: number
   trace_id?: string
-  sku_id: number
+  product_id: number
   warehouse_id: number
   movement_type: MovementType
   reference_type?: string
@@ -65,7 +101,7 @@ export interface InventoryMovement {
   operator_id?: number
   operated_at: string
   created_at: string
-  sku?: Sku
+  product?: ProductSummary
   warehouse?: Warehouse
   operator?: {
     id: number
@@ -88,10 +124,26 @@ export type MovementType =
   | 'WAREHOUSE_RECEIVE'      // 到仓收货
   | 'INSPECTION_PASS'        // 质检通过
   | 'INSPECTION_FAIL'        // 质检不合格
+  | 'ASSEMBLY_CONSUME'       // 组装耗料
   | 'ASSEMBLY_COMPLETE'      // 组装完成
+  | 'PACKING_SKIP_COMPLETE'  // 免打包直通
   | 'LOGISTICS_SHIP'         // 物流发货
   | 'PLATFORM_RECEIVE'       // 平台上架
   | 'RETURN_INSPECT'         // 退货质检
+
+export const NON_CREATABLE_MOVEMENT_TYPES = [
+  'PURCHASE_RECEIPT',
+  'SALES_SHIPMENT',
+  'RETURN_RECEIPT',
+  'PURCHASE_SHIP',
+  'WAREHOUSE_RECEIVE',
+  'INSPECTION_PASS',
+  'INSPECTION_FAIL',
+  'ASSEMBLY_COMPLETE',
+  'PACKING_SKIP_COMPLETE',
+  'LOGISTICS_SHIP',
+  'PLATFORM_RECEIVE'
+] as const
 
 // API请求参数类型
 
@@ -107,7 +159,7 @@ export interface BalanceListParams {
   page?: number
   page_size?: number
   warehouse_id?: number
-  sku_id?: number
+  product_id?: number
   low_stock?: boolean
   low_stock_threshold?: number
   zero_stock?: boolean
@@ -117,11 +169,20 @@ export interface BalanceListParams {
 export interface MovementListParams {
   page?: number
   page_size?: number
-  sku_id?: number
+  product_id?: number
   warehouse_id?: number
   movement_type?: MovementType
   date_from?: string
   date_to?: string
+}
+
+export interface InventoryLotListParams {
+  page?: number
+  page_size?: number
+  product_id?: number
+  warehouse_id?: number
+  status?: InventoryLotStatus
+  keyword?: string
 }
 
 export interface CreateWarehouseParams {
@@ -138,7 +199,7 @@ export interface CreateWarehouseParams {
 }
 
 export interface CreateMovementParams {
-  sku_id: number
+  product_id: number
   warehouse_id: number
   quantity: number
   reference_type?: string
@@ -151,7 +212,7 @@ export interface CreateMovementParams {
 }
 
 export interface CreateTransferParams {
-  sku_id: number
+  product_id: number
   from_warehouse_id: number
   to_warehouse_id: number
   quantity: number
@@ -225,10 +286,20 @@ export const MOVEMENT_TYPE_CONFIG = {
     color: 'danger',
     icon: '❌'
   },
+  ASSEMBLY_CONSUME: {
+    label: '打包耗材',
+    color: 'warning',
+    icon: '📦'
+  },
   ASSEMBLY_COMPLETE: {
-    label: '组装完成',
+    label: '打包完成',
     color: 'primary',
-    icon: '🔧'
+    icon: '📤'
+  },
+  PACKING_SKIP_COMPLETE: {
+    label: '免打包转待出',
+    color: 'success',
+    icon: '📦'
   },
   LOGISTICS_SHIP: {
     label: '物流发货',
@@ -246,6 +317,36 @@ export const MOVEMENT_TYPE_CONFIG = {
     icon: '🔍'
   }
 } as const
+
+export const MOVEMENT_TYPE_LABELS: Record<MovementType, { zh: string; en: string }> = {
+  PURCHASE_RECEIPT: { zh: '采购入库', en: 'Purchase Receipt' },
+  SALES_SHIPMENT: { zh: '销售出库', en: 'Sales Shipment' },
+  STOCK_TAKE_ADJUSTMENT: { zh: '盘点调整', en: 'Stock Take Adjustment' },
+  MANUAL_ADJUSTMENT: { zh: '手工调整', en: 'Manual Adjustment' },
+  DAMAGE_WRITE_OFF: { zh: '损坏报损', en: 'Damage Write-off' },
+  RETURN_RECEIPT: { zh: '退货入库', en: 'Return Receipt' },
+  TRANSFER_OUT: { zh: '调拨出库', en: 'Transfer Out' },
+  TRANSFER_IN: { zh: '调拨入库', en: 'Transfer In' },
+  PURCHASE_SHIP: { zh: '供应商发货', en: 'Purchase Ship' },
+  WAREHOUSE_RECEIVE: { zh: '到仓收货', en: 'Warehouse Receive' },
+  INSPECTION_PASS: { zh: '质检通过', en: 'Inspection Pass' },
+  INSPECTION_FAIL: { zh: '质检不合格', en: 'Inspection Fail' },
+  ASSEMBLY_CONSUME: { zh: '打包耗材', en: 'Packing Consume' },
+  ASSEMBLY_COMPLETE: { zh: '打包完成', en: 'Packing Complete' },
+  PACKING_SKIP_COMPLETE: { zh: '免打包转待出', en: 'Skip Packing Complete' },
+  LOGISTICS_SHIP: { zh: '物流发货', en: 'Logistics Ship' },
+  PLATFORM_RECEIVE: { zh: '平台上架', en: 'Platform Receive' },
+  RETURN_INSPECT: { zh: '退货质检', en: 'Return Inspect' }
+}
+
+export const CREATABLE_MOVEMENT_TYPE_CONFIG = Object.fromEntries(
+  Object.entries(MOVEMENT_TYPE_CONFIG).filter(
+    ([type]) => !NON_CREATABLE_MOVEMENT_TYPES.includes(type as (typeof NON_CREATABLE_MOVEMENT_TYPES)[number])
+  )
+) as Record<Exclude<MovementType, (typeof NON_CREATABLE_MOVEMENT_TYPES)[number]>, typeof MOVEMENT_TYPE_CONFIG[keyof typeof MOVEMENT_TYPE_CONFIG]>
+
+export const getMovementTypeLabel = (type: MovementType, isEnglish: boolean) =>
+  MOVEMENT_TYPE_LABELS[type]?.[isEnglish ? 'en' : 'zh'] || type
 
 // 仓库类型配置
 export const WAREHOUSE_TYPE_CONFIG = {

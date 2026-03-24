@@ -33,6 +33,9 @@ export interface LogisticsProvider {
   status: ProviderStatus
   created_at: string
   updated_at: string
+  reference_count?: number
+  deletable?: boolean
+  delete_block_reason?: string
 }
 
 // 运费报价
@@ -56,6 +59,9 @@ export interface ShippingRate {
   status: RateStatus
   created_at: string
   updated_at: string
+  reference_count?: number
+  deletable?: boolean
+  delete_block_reason?: string
 
   // 关联数据
   provider?: LogisticsProvider
@@ -185,6 +191,9 @@ export interface LogisticsService {
   status: ServiceStatus
   created_at: string
   updated_at: string
+  reference_count?: number
+  deletable?: boolean
+  delete_block_reason?: string
 }
 
 // 创建物流服务参数

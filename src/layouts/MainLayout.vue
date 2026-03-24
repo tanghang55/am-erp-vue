@@ -8,41 +8,53 @@
         </div>
 
         <!-- 顶部菜单 -->
-        <el-menu
-          v-if="!menuStore.loading"
-          :default-active="activeMenu"
-          mode="horizontal"
-          :ellipsis="false"
-          router
-          class="top-menu"
+        <div
+          class="menu-shell"
+          :class="{
+            'show-left-fade': showLeftFade,
+            'show-right-fade': showRightFade
+          }"
         >
-          <template v-for="menu in menuStore.menus" :key="menu.id">
-            <!-- 无子菜单的顶级菜单 -->
-            <el-menu-item v-if="!menu.children || menu.children.length === 0" :index="menu.path || ''">
-              <el-icon v-if="menu.icon">
-                <component :is="getIcon(menu.icon)" />
-              </el-icon>
-              <span>{{ getMenuTitle(menu) }}</span>
-            </el-menu-item>
+          <div ref="menuScrollRef" class="menu-scroll" @scroll.passive="updateMenuFade">
+            <el-menu
+              v-if="!menuStore.loading"
+              :default-active="activeMenu"
+              mode="horizontal"
+              :ellipsis="false"
+              router
+              class="top-menu"
+            >
+              <template v-for="menu in menuStore.menus" :key="menu.id">
+                <!-- 无子菜单的顶级菜单 -->
+                <el-menu-item v-if="!menu.children || menu.children.length === 0" :index="menu.path || ''">
+                  <el-icon v-if="menu.icon">
+                    <component :is="getIcon(menu.icon)" />
+                  </el-icon>
+                  <span class="menu-title">{{ getMenuTitle(menu) }}</span>
+                </el-menu-item>
 
-            <!-- 有子菜单的顶级菜单 -->
-            <el-sub-menu v-else :index="menu.code">
-              <template #title>
-                <el-icon v-if="menu.icon">
-                  <component :is="getIcon(menu.icon)" />
-                </el-icon>
-                <span>{{ getMenuTitle(menu) }}</span>
+                <!-- 有子菜单的顶级菜单 -->
+                <el-sub-menu v-else :index="menu.code">
+                  <template #title>
+                    <el-icon v-if="menu.icon">
+                      <component :is="getIcon(menu.icon)" />
+                    </el-icon>
+                    <span class="menu-title">{{ getMenuTitle(menu) }}</span>
+                  </template>
+                  <el-menu-item
+                    v-for="child in menu.children"
+                    :key="child.id"
+                    :index="child.path || ''"
+                  >
+                    {{ getMenuTitle(child) }}
+                  </el-menu-item>
+                </el-sub-menu>
               </template>
-              <el-menu-item
-                v-for="child in menu.children"
-                :key="child.id"
-                :index="child.path || ''"
-              >
-                {{ getMenuTitle(child) }}
-              </el-menu-item>
-            </el-sub-menu>
-          </template>
-        </el-menu>
+            </el-menu>
+          </div>
+          <div class="menu-fade menu-fade-left"></div>
+          <div class="menu-fade menu-fade-right"></div>
+        </div>
       </div>
 
       <div class="header-right">
@@ -85,10 +97,13 @@
     <!-- 主内容区 -->
     <el-main class="main-content">
       <router-view v-slot="{ Component, route }">
-        <transition name="fade-transform" mode="out-in">
-          <keep-alive :include="cacheList">
+        <transition v-if="route.meta.keepAlive !== false" name="fade-transform" mode="out-in">
+          <keep-alive>
             <component :is="Component" :key="route.path" />
           </keep-alive>
+        </transition>
+        <transition v-else name="fade-transform" mode="out-in">
+          <component :is="Component" :key="route.path" />
         </transition>
       </router-view>
     </el-main>
@@ -96,7 +111,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, watch, ref } from 'vue'
+import { computed, onMounted, watch, ref, nextTick, onBeforeUnmount, type Component } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/modules/identity/stores/authStore'
 import { useMenuStore } from '@/modules/identity/stores/menuStore'
@@ -111,9 +126,9 @@ const authStore = useAuthStore()
 const menuStore = useMenuStore()
 const localeStore = useLocaleStore()
 const tabsStore = useTabsStore()
-
-// 需要缓存的组件列表
-const cacheList = ref<string[]>([])
+const menuScrollRef = ref<HTMLElement | null>(null)
+const showLeftFade = ref(false)
+const showRightFade = ref(false)
 
 // 当前激活的菜单
 const activeMenu = computed(() => route.path)
@@ -124,15 +139,33 @@ const roleNames = computed(() => {
 })
 
 // 获取图标组件
-const getIcon = (iconName: string) => {
-  return (ElementPlusIconsVue as any)[iconName]
-}
+const iconMap = ElementPlusIconsVue as Record<string, Component>
+const getIcon = (iconName: string) => iconMap[iconName]
 
 const getMenuTitle = (menu: { title?: string; title_en?: string | null }) => {
   if (localeStore.isEnglish) {
     return menu.title_en || menu.title || ''
   }
   return menu.title || menu.title_en || ''
+}
+
+const updateMenuFade = () => {
+  const el = menuScrollRef.value
+  if (!el) {
+    showLeftFade.value = false
+    showRightFade.value = false
+    return
+  }
+
+  const maxScroll = el.scrollWidth - el.clientWidth
+  if (maxScroll <= 2) {
+    showLeftFade.value = false
+    showRightFade.value = false
+    return
+  }
+
+  showLeftFade.value = el.scrollLeft > 2
+  showRightFade.value = el.scrollLeft < maxScroll - 2
 }
 
 // 退出登录
@@ -146,6 +179,9 @@ const handleLogout = async () => {
 // 加载菜单
 onMounted(async () => {
   await menuStore.loadMenus()
+  await nextTick()
+  updateMenuFade()
+  window.addEventListener('resize', updateMenuFade)
   // 初始化标签页
   tabsStore.init()
   // 添加当前路由到标签页
@@ -154,13 +190,35 @@ onMounted(async () => {
   }
 })
 
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateMenuFade)
+})
+
 // 监听路由变化，自动添加标签页
 watch(
   () => route.path,
-  () => {
+  async () => {
     if (route.path !== '/login') {
       tabsStore.addTab(route)
     }
+    await nextTick()
+    updateMenuFade()
+  }
+)
+
+watch(
+  () => menuStore.menus.length,
+  async () => {
+    await nextTick()
+    updateMenuFade()
+  }
+)
+
+watch(
+  () => localeStore.locale,
+  async () => {
+    await nextTick()
+    updateMenuFade()
   }
 )
 </script>
@@ -177,7 +235,7 @@ watch(
 
 /* 顶部导航栏 */
 .header {
-  height: 60px;
+  height: 56px;
   background-color: #fff;
   border-bottom: 1px solid #e6e6e6;
   display: flex;
@@ -192,54 +250,127 @@ watch(
   align-items: center;
   height: 100%;
   flex: 1;
+  min-width: 0;
 }
 
 .logo {
   height: 100%;
-  padding: 0 24px;
+  padding: 0 16px;
   display: flex;
   align-items: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  min-width: 200px;
+  min-width: 150px;
+  flex-shrink: 0;
 }
 
 .logo-text {
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 600;
   color: #fff;
-  letter-spacing: 1px;
+  letter-spacing: 0.4px;
+}
+
+.menu-shell {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
+.menu-scroll {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.menu-fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 3;
+}
+
+.menu-fade-left {
+  left: 0;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0));
+}
+
+.menu-fade-right {
+  right: 0;
+  background: linear-gradient(to left, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0));
+}
+
+.menu-shell.show-left-fade .menu-fade-left {
+  opacity: 1;
+}
+
+.menu-shell.show-right-fade .menu-fade-right {
+  opacity: 1;
 }
 
 .top-menu {
   border-bottom: none;
-  flex: 1;
   height: 100%;
+  min-width: max-content;
+}
+
+.top-menu :deep(.el-menu-item),
+.top-menu :deep(.el-sub-menu__title) {
+  height: 56px;
+  line-height: 56px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.top-menu :deep(.el-sub-menu__title) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.top-menu :deep(.el-sub-menu__icon-arrow) {
+  position: static;
+  margin: 0 0 0 4px;
+}
+
+.menu-title {
+  white-space: nowrap;
 }
 
 .top-menu .el-menu-item,
 .top-menu .el-sub-menu {
-  height: 60px;
-  line-height: 60px;
+  height: 56px;
+  line-height: 56px;
 }
 
 .header-right {
-  padding: 0 24px;
+  height: 100%;
+  padding: 0 12px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-shrink: 0;
+  border-left: 1px solid #f3f4f6;
 }
 
 .locale-select {
-  width: 110px;
+  width: 96px;
 }
 
 .user-dropdown {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   cursor: pointer;
   color: #333;
-  font-size: 14px;
+  font-size: 13px;
   transition: color 0.3s;
 }
 
@@ -248,7 +379,7 @@ watch(
 }
 
 .username {
-  max-width: 120px;
+  max-width: 96px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -297,29 +428,29 @@ watch(
 
 /* 响应式 */
 @media (max-width: 768px) {
-  .logo-text {
-    font-size: 16px;
+  .logo {
+    min-width: 118px;
+    padding: 0 10px;
   }
 
-  .header-left {
-    flex-wrap: wrap;
+  .logo-text {
+    font-size: 14px;
+  }
+
+  .menu-scroll {
+    overflow-x: auto;
+  }
+
+  .top-menu :deep(.el-icon) {
+    display: none;
   }
 
   .username {
     display: none;
   }
-}
-</style>
 
-<style>
-/* 全局样式修正 */
-.el-sub-menu__title {
-  display: flex;
-  align-items: center;
-}
-
-.el-menu--horizontal > .el-sub-menu .el-sub-menu__title {
-  height: 60px;
-  line-height: 60px;
+  .locale-select {
+    width: 82px;
+  }
 }
 </style>

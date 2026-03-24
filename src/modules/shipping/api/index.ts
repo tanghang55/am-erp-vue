@@ -3,6 +3,7 @@ import type {
   Shipment,
   ShipmentListParams,
   CreateShipmentParams,
+  UpdateShipmentParams,
   MarkShippedParams,
   MarkDeliveredParams,
   PackageSpec,
@@ -13,6 +14,7 @@ import type {
   SavePackageSpecPackagingParams
 } from '../types'
 import type { ApiResponse, PaginatedResponse } from '@/modules/common/types'
+import type { CreateMovementParams, InventoryMovement } from '@/modules/inventory/types'
 
 // Re-export types for convenience
 export type { MarkShippedParams, MarkDeliveredParams }
@@ -50,6 +52,17 @@ export function createShipment(data: CreateShipmentParams) {
 }
 
 /**
+ * 编辑发货单
+ */
+export function updateShipment(id: number, data: UpdateShipmentParams) {
+  return request<ApiResponse<Shipment>>({
+    url: `/api/v1/shipments/${id}`,
+    method: 'put',
+    data
+  })
+}
+
+/**
  * 确认发货单 (DRAFT → CONFIRMED)
  * 锁定库存，检查库存是否充足
  */
@@ -82,6 +95,18 @@ export function markDelivered(id: number, data?: MarkDeliveredParams) {
     url: `/api/v1/shipments/${id}/delivered`,
     method: 'post',
     data: data || {}
+  })
+}
+
+/**
+ * 平台上架（货件接收）
+ * 单次只处理一个产品，避免前端批量循环带来半成功状态。
+ */
+export function receiveShipmentItem(data: CreateMovementParams) {
+  return request<ApiResponse<InventoryMovement>>({
+    url: '/api/v1/inventory/movements/platform-receive',
+    method: 'post',
+    data
   })
 }
 

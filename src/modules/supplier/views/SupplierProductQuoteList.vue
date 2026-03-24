@@ -3,28 +3,28 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <h3>Supplier Quotes</h3>
-          <el-button type="primary" @click="handleSearch">Refresh</el-button>
+          <h3>供应商报价</h3>
+          <el-button type="primary" @click="handleSearch">刷新</el-button>
         </div>
       </template>
 
       <el-form :inline="true" :model="searchForm" class="search-form">
-        <el-form-item label="Keyword">
-          <el-input v-model="searchForm.keyword" placeholder="SKU/ASIN/Title" clearable style="width: 220px" />
+        <el-form-item label="关键词">
+          <el-input v-model="searchForm.keyword" placeholder="产品编码 / ASIN / 标题" clearable style="width: 220px" />
         </el-form-item>
-        <el-form-item label="Marketplace">
-          <el-select v-model="searchForm.marketplace" placeholder="All" clearable style="width: 160px">
+        <el-form-item label="站点">
+          <el-select v-model="searchForm.marketplace" placeholder="全部" clearable style="width: 160px">
             <el-option v-for="item in marketplaceOptions" :key="item" :label="item" :value="item" />
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleSearch">Search</el-button>
-          <el-button @click="handleReset">Reset</el-button>
+          <el-button type="primary" @click="handleSearch">查询</el-button>
+          <el-button @click="handleReset">重置</el-button>
         </el-form-item>
       </el-form>
 
       <el-table :data="quoteRows" v-loading="loading" border stripe>
-        <el-table-column label="Product" min-width="320">
+        <el-table-column label="产品" min-width="320">
           <template #default="{ row }">
             <div class="product-cell">
               <img
@@ -33,7 +33,7 @@
                 class="product-image"
                 alt="product"
               />
-              <div v-else class="product-image-placeholder">No Image</div>
+              <div v-else class="product-image-placeholder">无图</div>
               <div class="product-meta">
                 <div class="product-line product-sku">{{ row.seller_sku }}</div>
                 <div class="product-line">
@@ -41,22 +41,22 @@
                   <span class="product-value">{{ row.asin || '-' }}</span>
                 </div>
                 <div class="product-line">
-                  <span class="product-label">Market</span>
+                  <span class="product-label">站点</span>
                   <span class="product-value">{{ row.marketplace || '-' }}</span>
                 </div>
                 <div class="product-line">
-                  <span class="product-label">Title</span>
+                  <span class="product-label">标题</span>
                   <span class="product-value product-title">{{ row.title || '-' }}</span>
                 </div>
               </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Supplier Quotes" min-width="560">
+        <el-table-column label="报价列表" min-width="560">
           <template #default="{ row }">
             <div class="quote-list-header">
-              <span class="quote-count">{{ row.quotes?.length || 0 }} quotes</span>
-              <el-button size="small" type="primary" @click="openCreate(row)">Add Quote</el-button>
+              <span class="quote-count">{{ row.quotes?.length || 0 }} 条报价</span>
+              <el-button size="small" type="primary" @click="openCreate(row)">新增报价</el-button>
             </div>
             <div v-if="row.quotes && row.quotes.length" class="quote-list">
               <div v-for="quote in row.quotes" :key="quote.id" class="quote-card">
@@ -66,13 +66,13 @@
                     <span v-if="quote.supplier_code" class="quote-code">({{ quote.supplier_code }})</span>
                   </div>
                   <div class="quote-tags">
-                    <el-tag v-if="isDefault(row, quote)" type="success" size="small">Default</el-tag>
+                    <el-tag v-if="isDefault(row, quote)" type="success" size="small">默认</el-tag>
                     <el-tag size="small">{{ quote.status || 'ACTIVE' }}</el-tag>
                   </div>
                 </div>
                 <div class="quote-body">
                   <div class="quote-line">
-                    <span class="quote-label">Price</span>
+                    <span class="quote-label">报价</span>
                     <span class="quote-value">{{ formatPrice(quote.price, quote.currency) }}</span>
                   </div>
                   <div class="quote-line">
@@ -80,29 +80,29 @@
                     <span class="quote-value">{{ quote.qty_moq }}</span>
                   </div>
                   <div class="quote-line">
-                    <span class="quote-label">Lead Time</span>
-                    <span class="quote-value">{{ quote.lead_time_days }} days</span>
+                    <span class="quote-label">交期</span>
+                    <span class="quote-value">{{ quote.lead_time_days }} 天</span>
                   </div>
                   <div v-if="quote.remark" class="quote-line">
-                    <span class="quote-label">Remark</span>
+                    <span class="quote-label">备注</span>
                     <span class="quote-value">{{ quote.remark }}</span>
                   </div>
                 </div>
                 <div class="quote-actions">
-                  <el-button link type="primary" @click="openEdit(row, quote)">Edit</el-button>
-                  <el-button link type="danger" @click="handleDelete(row, quote)">Delete</el-button>
+                  <el-button link type="primary" @click="openEdit(row, quote)">编辑</el-button>
+                  <el-button link type="danger" @click="handleDelete(row, quote)">删除</el-button>
                   <el-button
                     v-if="!isDefault(row, quote)"
                     link
                     type="success"
                     @click="handleSetDefault(row, quote)"
                   >
-                    Set Default
+                    设为默认
                   </el-button>
                 </div>
               </div>
             </div>
-            <div v-else class="quote-empty">No quotes</div>
+            <div v-else class="quote-empty">暂无报价</div>
           </template>
         </el-table-column>
       </el-table>
@@ -122,47 +122,68 @@
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="640px">
       <el-form :model="quoteForm" :rules="quoteFormRules" ref="quoteFormRef" label-width="140px">
-        <el-form-item label="Product ID" prop="product_id">
-          <el-input v-model.number="quoteForm.product_id" disabled />
+        <el-form-item label="产品">
+          <div v-if="activeProduct" class="dialog-product-card">
+            <img
+              v-if="activeProduct.image_url"
+              :src="getFullImageUrl(activeProduct.image_url)"
+              class="dialog-product-image"
+              alt="product"
+            />
+            <div v-else class="dialog-product-image placeholder">无图</div>
+            <div class="dialog-product-meta">
+              <div class="dialog-product-sku">{{ activeProduct.seller_sku }}</div>
+              <div class="dialog-product-line">ASIN：{{ activeProduct.asin || '-' }}</div>
+              <div class="dialog-product-line">站点：{{ activeProduct.marketplace || '-' }}</div>
+              <div class="dialog-product-line">{{ activeProduct.title || '-' }}</div>
+            </div>
+          </div>
         </el-form-item>
-        <el-form-item label="Supplier ID" prop="supplier_id">
-          <el-input v-model.number="quoteForm.supplier_id" />
+        <el-form-item label="供应商" prop="supplier_id">
+          <SupplierSelector
+            v-model="quoteForm.supplier_id"
+            class="supplier-selector"
+            type="PRODUCT"
+            title="选择供应商"
+            placeholder="请选择供应商"
+          />
         </el-form-item>
-        <el-form-item label="Price" prop="price">
-          <el-input-number v-model="quoteForm.price" :min="0" :precision="4" />
+        <el-form-item label="报价" prop="price">
+          <el-input-number v-model="quoteForm.price" :min="0" :precision="4" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="Currency" prop="currency">
+        <el-form-item label="币种" prop="currency">
           <el-input v-model="quoteForm.currency" />
         </el-form-item>
         <el-form-item label="MOQ" prop="qty_moq">
-          <el-input-number v-model="quoteForm.qty_moq" :min="1" />
+          <el-input-number v-model="quoteForm.qty_moq" :min="1" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="Lead Time (days)" prop="lead_time_days">
-          <el-input-number v-model="quoteForm.lead_time_days" :min="0" />
+        <el-form-item label="交期(天)" prop="lead_time_days">
+          <el-input-number v-model="quoteForm.lead_time_days" :min="0" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="Status">
-          <el-select v-model="quoteForm.status" placeholder="ACTIVE">
-            <el-option label="ACTIVE" value="ACTIVE" />
-            <el-option label="INACTIVE" value="INACTIVE" />
+        <el-form-item label="状态">
+          <el-select v-model="quoteForm.status" placeholder="ACTIVE" style="width: 100%">
+            <el-option label="启用" value="ACTIVE" />
+            <el-option label="停用" value="INACTIVE" />
           </el-select>
         </el-form-item>
-        <el-form-item label="Remark">
+        <el-form-item label="备注">
           <el-input v-model="quoteForm.remark" type="textarea" :rows="3" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">Cancel</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSave">Save</el-button>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onActivated, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { getProductQuoteList, createQuote, updateQuote, deleteQuote, setDefaultSupplier } from '../api'
 import type { ProductQuoteRow, ProductSupplierQuote, QuoteUpsertParams } from '../types'
+import SupplierSelector from '@/modules/supplier/components/SupplierSelector.vue'
 
 const quoteRows = ref<ProductQuoteRow[]>([])
 const loading = ref(false)
@@ -183,10 +204,11 @@ const dialogTitle = ref('')
 const isEdit = ref(false)
 const saving = ref(false)
 const quoteFormRef = ref<FormInstance>()
+const activeProduct = ref<ProductQuoteRow | null>(null)
 
 const quoteForm = reactive({
   product_id: 0,
-  supplier_id: 0,
+  supplier_id: null as number | null,
   price: 0,
   currency: 'USD',
   qty_moq: 1,
@@ -196,10 +218,10 @@ const quoteForm = reactive({
 })
 
 const quoteFormRules: FormRules = {
-  product_id: [{ required: true, message: 'Required', trigger: 'blur' }],
-  supplier_id: [{ required: true, message: 'Required', trigger: 'blur' }],
-  price: [{ required: true, message: 'Required', trigger: 'blur' }],
-  currency: [{ required: true, message: 'Required', trigger: 'blur' }]
+  product_id: [{ required: true, message: '请选择产品', trigger: 'change' }],
+  supplier_id: [{ required: true, message: '请选择供应商', trigger: 'change' }],
+  price: [{ required: true, message: '请输入报价', trigger: 'blur' }],
+  currency: [{ required: true, message: '请输入币种', trigger: 'blur' }]
 }
 
 const marketplaceOptions = ['US', 'CA', 'AU', 'UK', 'DE', 'JP']
@@ -235,10 +257,11 @@ const handleReset = () => {
 
 const openCreate = (row: ProductQuoteRow) => {
   isEdit.value = false
-  dialogTitle.value = 'Add Quote'
+  dialogTitle.value = '新增供应商报价'
+  activeProduct.value = row
   Object.assign(quoteForm, {
     product_id: row.product_id,
-    supplier_id: 0,
+    supplier_id: null,
     price: 0,
     currency: 'USD',
     qty_moq: 1,
@@ -251,7 +274,8 @@ const openCreate = (row: ProductQuoteRow) => {
 
 const openEdit = (row: ProductQuoteRow, quote: ProductSupplierQuote) => {
   isEdit.value = true
-  dialogTitle.value = 'Edit Quote'
+  dialogTitle.value = '编辑供应商报价'
+  activeProduct.value = row
   Object.assign(quoteForm, {
     product_id: row.product_id,
     supplier_id: quote.supplier_id,
@@ -274,7 +298,7 @@ const handleSave = async () => {
   try {
     const payload: QuoteUpsertParams = {
       product_id: quoteForm.product_id,
-      supplier_id: quoteForm.supplier_id,
+      supplier_id: quoteForm.supplier_id!,
       price: quoteForm.price,
       currency: quoteForm.currency,
       qty_moq: quoteForm.qty_moq,
@@ -284,12 +308,13 @@ const handleSave = async () => {
     }
     if (isEdit.value) {
       await updateQuote(payload)
-      ElMessage.success('Quote updated successfully')
+      ElMessage.success('报价更新成功')
     } else {
       await createQuote(payload)
-      ElMessage.success('Quote created successfully')
+      ElMessage.success('报价创建成功')
     }
     dialogVisible.value = false
+    activeProduct.value = null
     loadQuoteList()
   } finally {
     saving.value = false
@@ -298,34 +323,34 @@ const handleSave = async () => {
 
 const handleDelete = async (row: ProductQuoteRow, quote: ProductSupplierQuote) => {
   try {
-    await ElMessageBox.confirm('Are you sure to delete this quote?', 'Warning', {
-      confirmButtonText: 'Confirm',
-      cancelButtonText: 'Cancel',
+    await ElMessageBox.confirm('确认删除这条报价吗？', '提示', {
+      confirmButtonText: '确认',
+      cancelButtonText: '取消',
       type: 'warning'
     })
     await deleteQuote(row.product_id, quote.supplier_id)
-    ElMessage.success('Quote deleted successfully')
+    ElMessage.success('报价删除成功')
     loadQuoteList()
   } catch (error) {
     if (error !== 'cancel') {
-      console.error('Delete failed:', error)
+      console.error('Delete quote failed:', error)
     }
   }
 }
 
 const handleSetDefault = async (row: ProductQuoteRow, quote: ProductSupplierQuote) => {
   try {
-    await ElMessageBox.confirm('Set this supplier as default?', 'Warning', {
-      confirmButtonText: 'Confirm',
-      cancelButtonText: 'Cancel',
+    await ElMessageBox.confirm('确认将该供应商设为默认报价吗？', '提示', {
+      confirmButtonText: '确认',
+      cancelButtonText: '取消',
       type: 'warning'
     })
     await setDefaultSupplier(row.product_id, quote.supplier_id)
-    ElMessage.success('Default supplier updated')
+    ElMessage.success('默认供应商已更新')
     loadQuoteList()
   } catch (error) {
     if (error !== 'cancel') {
-      console.error('Update failed:', error)
+      console.error('Set default supplier failed:', error)
     }
   }
 }
@@ -345,6 +370,10 @@ const getFullImageUrl = (url: string) => {
 }
 
 onMounted(() => {
+  loadQuoteList()
+})
+
+onActivated(() => {
   loadQuoteList()
 })
 </script>
@@ -508,5 +537,57 @@ onMounted(() => {
   padding: 12px 0;
   color: #9ca3af;
   font-size: 13px;
+}
+
+.dialog-product-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.dialog-product-image {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #dbe1ea;
+  flex-shrink: 0;
+}
+
+.dialog-product-image.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 12px;
+  background: #fff;
+}
+
+.dialog-product-meta {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dialog-product-sku {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.dialog-product-line {
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.supplier-selector {
+  width: 100%;
 }
 </style>

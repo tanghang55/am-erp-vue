@@ -10,6 +10,7 @@ export interface User {
   last_login_at?: string | null
   gmt_create: string
   gmt_modified: string
+  roles?: Role[]
 }
 
 export interface Role {
@@ -59,4 +60,51 @@ export interface LoginResponse {
   roles: Role[]
   permissions: Permission[]
   access_token: string
+}
+
+export interface IntegrationProviderSummary {
+  code: string
+  type: string
+  display_name: string
+}
+
+export type IntegrationAuthorizationStatus = 'PENDING' | 'AUTHORIZED' | 'FAILED' | 'DISABLED'
+
+export interface IntegrationAuthorization {
+  id: number
+  provider_code: string
+  provider_type: string
+  account_alias?: string | null
+  seller_partner_id?: string | null
+  status: IntegrationAuthorizationStatus
+  access_token_expire_at?: string | null
+  token_scope?: string | null
+  last_authorized_at?: string | null
+  last_refresh_at?: string | null
+  refresh_fail_count?: number
+  last_refresh_attempt_at?: string | null
+  last_refresh_failed_at?: string | null
+  last_error_message?: string | null
+  created_by?: number | null
+  updated_by?: number | null
+  created_at: string
+  updated_at: string
+}
+
+export type IntegrationSKUMappingStatus = 'ACTIVE' | 'DISABLED'
+
+export interface IntegrationSKUMapping {
+  id: number
+  provider_code: string
+  marketplace: string
+  seller_sku: string
+  product_id: number
+  product_title?: string
+  product_seller_sku?: string
+  status: IntegrationSKUMappingStatus
+  remark?: string | null
+  created_by?: number | null
+  updated_by?: number | null
+  created_at: string
+  updated_at: string
 }

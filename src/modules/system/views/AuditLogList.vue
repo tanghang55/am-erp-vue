@@ -1,35 +1,61 @@
 <template>
   <div class="audit-log-container">
-    <el-card>
+    <el-card shadow="never">
       <template #header>
-        <div class="card-header">
-          <span>操作日志</span>
+        <div class="page-header">
+          <div>
+            <div class="page-title">操作日志</div>
+            <div class="page-subtitle">集中查看系统关键操作、操作者、实体对象和字段变更。日志只查不改，详情单独展开查看。</div>
+          </div>
           <el-button type="primary" @click="handleQuery">刷新</el-button>
         </div>
       </template>
 
-      <el-form :inline="true" :model="queryParams" class="filter-form">
+      <el-form :inline="true" :model="queryParams" class="search-form">
         <el-form-item label="模块">
-          <el-select v-model="queryParams.module" placeholder="全部" clearable style="width: 140px">
+          <el-select v-model="queryParams.module" placeholder="全部" clearable style="width: 140px" @clear="handleQuery">
             <el-option v-for="item in moduleOptions" :key="item" :label="item" :value="item" />
           </el-select>
         </el-form-item>
         <el-form-item label="动作">
-          <el-select v-model="queryParams.action" placeholder="全部" clearable style="width: 140px">
+          <el-select v-model="queryParams.action" placeholder="全部" clearable style="width: 140px" @clear="handleQuery">
             <el-option v-for="item in actionOptions" :key="item" :label="item" :value="item" />
           </el-select>
         </el-form-item>
         <el-form-item label="用户">
-          <el-input v-model="queryParams.username" placeholder="用户名" clearable style="width: 160px" />
+          <el-input
+            v-model="queryParams.username"
+            placeholder="用户名"
+            clearable
+            style="width: 160px"
+            @clear="handleQuery"
+            @keyup.enter="handleQuery"
+          />
         </el-form-item>
         <el-form-item label="实体">
-          <el-input v-model="queryParams.entity_type" placeholder="Entity Type" clearable style="width: 140px" />
+          <el-select v-model="queryParams.entity_type" placeholder="全部" clearable style="width: 160px" @clear="handleQuery">
+            <el-option v-for="item in entityTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
         </el-form-item>
-        <el-form-item label="实体ID">
-          <el-input v-model="queryParams.entity_id" placeholder="Entity ID" clearable style="width: 140px" />
+        <el-form-item label="实体编号">
+          <el-input
+            v-model="queryParams.entity_id"
+            placeholder="实体编号"
+            clearable
+            style="width: 140px"
+            @clear="handleQuery"
+            @keyup.enter="handleQuery"
+          />
         </el-form-item>
         <el-form-item label="关键词">
-          <el-input v-model="queryParams.keyword" placeholder="trace/user/entity" clearable style="width: 200px" />
+          <el-input
+            v-model="queryParams.keyword"
+            placeholder="Trace / 用户 / 实体"
+            clearable
+            style="width: 220px"
+            @clear="handleQuery"
+            @keyup.enter="handleQuery"
+          />
         </el-form-item>
         <el-form-item label="时间">
           <el-date-picker
@@ -48,55 +74,46 @@
       </el-form>
 
       <el-table v-loading="loading" :data="logList" border stripe>
-        <el-table-column type="expand">
+        <el-table-column label="时间与模块" width="210">
           <template #default="{ row }">
-            <div class="expand-panel">
-              <div class="expand-item">
-                <span class="label">Trace ID</span>
-                <span>{{ row.trace_id || '-' }}</span>
-              </div>
-              <div class="expand-item">
-                <span class="label">IP</span>
-                <span>{{ row.ip_address || '-' }}</span>
-              </div>
-              <div class="expand-item">
-                <span class="label">User Agent</span>
-                <span class="ua">{{ row.user_agent || '-' }}</span>
-              </div>
-              <div class="expand-item">
-                <span class="label">Changes</span>
-                <div class="changes">
-                  <el-table v-if="row.changes" :data="getChangeRows(row.changes)" size="small" border>
-                    <el-table-column prop="key" label="Field" width="180" />
-                    <el-table-column prop="before" label="Before" />
-                    <el-table-column prop="after" label="After" />
-                  </el-table>
-                  <span v-else>-</span>
-                </div>
+            <div class="time-block">
+              <div>{{ row.created_at }}</div>
+              <div class="time-block__meta">{{ row.module }}</div>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="日志摘要" min-width="420">
+          <template #default="{ row }">
+            <div class="log-main">
+              <div class="log-main__title">{{ formatAuditSummary(row) }}</div>
+              <div class="log-main__meta">
+                <span>{{ getEntityTypeLabel(row.entity_type) }}</span>
+                <span v-if="row.entity_id">{{ row.entity_id }}</span>
+                <span>{{ getActionLabel(row.action, row.entity_type) }}</span>
               </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="时间" width="180" />
-        <el-table-column prop="module" label="模块" width="120" />
-        <el-table-column prop="action" label="动作" width="140" />
-        <el-table-column label="实体" min-width="200">
+
+        <el-table-column label="用户与来源" min-width="220">
           <template #default="{ row }">
-            <span>{{ row.entity_type || '-' }}</span>
-            <span v-if="row.entity_id"> #{{ row.entity_id }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="摘要" min-width="360">
-          <template #default="{ row }">
-            <div class="audit-summary">
-              {{ formatAuditSummary(row) }}
+            <div class="user-block">
+              <div>{{ row.username || '系统' }}</div>
+              <div class="user-block__meta">{{ row.ip_address || '无 IP' }}</div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="用户" width="140">
+
+        <el-table-column label="Trace" width="180">
           <template #default="{ row }">
-            <span>{{ row.username || '-' }}</span>
-            <span v-if="row.user_id">({{ row.user_id }})</span>
+            <div class="trace-block">{{ row.trace_id || '-' }}</div>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="操作" width="120" fixed="right">
+          <template #default="{ row }">
+            <el-button size="small" @click="handleView(row)">查看详情</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -113,11 +130,61 @@
         />
       </div>
     </el-card>
+
+    <el-dialog v-model="detailVisible" title="日志详情" width="920px">
+      <div v-if="currentLog" class="detail-layout">
+        <section class="detail-card detail-card--main">
+          <div class="detail-main">
+            <div class="detail-main__title">{{ formatAuditSummary(currentLog) }}</div>
+            <div class="detail-main__meta">
+              <span>{{ currentLog.created_at }}</span>
+              <span>{{ currentLog.module }}</span>
+              <span>{{ getActionLabel(currentLog.action, currentLog.entity_type) }}</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="detail-card">
+          <div class="detail-card__title">基础信息</div>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span>操作用户</span>
+              <strong>{{ currentLog.username || '系统' }}</strong>
+            </div>
+            <div class="detail-item">
+              <span>实体类型</span>
+              <strong>{{ getEntityTypeLabel(currentLog.entity_type) }}</strong>
+            </div>
+            <div class="detail-item">
+              <span>实体编号</span>
+              <strong>{{ currentLog.entity_id || '-' }}</strong>
+            </div>
+            <div class="detail-item">
+              <span>Trace ID</span>
+              <strong>{{ currentLog.trace_id || '-' }}</strong>
+            </div>
+            <div class="detail-item detail-item--full">
+              <span>客户端</span>
+              <strong>{{ currentLog.user_agent || '-' }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="detail-card">
+          <div class="detail-card__title">字段变更</div>
+          <el-table :data="currentChangeRows" size="small" border>
+            <el-table-column prop="key" label="字段" width="180" />
+            <el-table-column prop="before" label="变更前" />
+            <el-table-column prop="after" label="变更后" />
+          </el-table>
+        </section>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { getSystemAuditLogList } from '../api'
 import { useLocaleStore } from '@/modules/common/stores/localeStore'
 import { useFieldLabelStore } from '@/modules/common/stores/fieldLabelStore'
@@ -125,11 +192,13 @@ import { useAuditLogFormatter } from '@/modules/common/composables/useAuditLogFo
 import type { AuditLog } from '../types'
 
 const loading = ref(false)
+const detailVisible = ref(false)
 const logList = ref<AuditLog[]>([])
 const total = ref(0)
+const currentLog = ref<AuditLog | null>(null)
 const localeStore = useLocaleStore()
 const fieldLabelStore = useFieldLabelStore()
-const { formatAuditSummary, getChangeRows } = useAuditLogFormatter()
+const { formatAuditSummary, getActionLabel, getChangeRows, getEntityTypeLabel } = useAuditLogFormatter()
 
 const queryParams = reactive({
   page: 1,
@@ -167,6 +236,32 @@ const actionOptions = [
   'SUBMIT',
   'CLOSE'
 ]
+
+const entityTypeOptions = [
+  { value: 'Product', label: '产品' },
+  { value: 'ProductGroup', label: '产品归组' },
+  { value: 'ProductCombo', label: '产品组合' },
+  { value: 'PurchaseOrder', label: '采购单' },
+  { value: 'ReplenishmentPlan', label: '采购计划' },
+  { value: 'SalesOrder', label: '销售订单' },
+  { value: 'Shipment', label: '货件' },
+  { value: 'PackagingItem', label: '包材' },
+  { value: 'PackagingPurchaseOrder', label: '包材采购单' },
+  { value: 'ExchangeRate', label: '汇率' },
+  { value: 'ConfigCenter', label: '配置中心' },
+  { value: 'Menu', label: '菜单' },
+  { value: 'User', label: '用户' },
+  { value: 'Role', label: '角色' },
+  { value: 'System', label: '系统' }
+]
+
+
+const currentChangeRows = computed(() => {
+  if (!currentLog.value?.changes) {
+    return []
+  }
+  return getChangeRows(currentLog.value.changes)
+})
 
 const loadLogs = async () => {
   loading.value = true
@@ -210,6 +305,11 @@ const handleReset = () => {
   loadLogs()
 }
 
+const handleView = (row: AuditLog) => {
+  currentLog.value = row
+  detailVisible.value = true
+}
+
 onMounted(() => {
   fieldLabelStore.ensureLoaded(localeStore.locale)
   loadLogs()
@@ -219,20 +319,90 @@ onMounted(() => {
 <style scoped>
 .audit-log-container {
   width: 100%;
-  max-width: 100%;
-  margin: 0;
-  padding: 0;
 }
 
-.card-header {
+.page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  font-size: 18px;
+  align-items: flex-start;
+  gap: 16px;
 }
 
-.filter-form {
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.page-subtitle {
+  margin-top: 6px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.summary-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.summary-card__label,
+.summary-card__hint {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.summary-card__value {
+  margin-top: 8px;
+  font-size: 28px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.summary-card__hint {
+  margin-top: 8px;
+}
+
+.search-form {
   margin-bottom: 16px;
+}
+
+.time-block,
+.user-block,
+.log-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.time-block__meta,
+.user-block__meta,
+.log-main__meta {
+  color: #6b7280;
+  font-size: 13px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.log-main__title,
+.detail-main__title {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #111827;
+}
+
+.trace-block {
+  color: #374151;
+  word-break: break-all;
 }
 
 .pagination {
@@ -241,35 +411,81 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
-.expand-panel {
-  display: grid;
-  gap: 8px;
+.detail-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.detail-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 18px 20px;
+  background: #fff;
+}
+
+.detail-card--main {
+  background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+}
+
+.detail-main__meta {
+  margin-top: 6px;
+  color: #6b7280;
   font-size: 13px;
-  color: #4b5563;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.expand-item {
-  display: grid;
-  grid-template-columns: 80px 1fr;
-  gap: 10px;
-}
-
-.expand-item .label {
+.detail-card__title {
+  margin-bottom: 14px;
   font-weight: 600;
   color: #111827;
 }
 
-.ua {
-  word-break: break-all;
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
 }
 
-.changes {
-  padding: 6px 0;
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.audit-summary {
+.detail-item span {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.detail-item strong {
+  color: #111827;
+  font-size: 14px;
   line-height: 1.6;
-  white-space: normal;
-  word-break: break-word;
+}
+
+.detail-item--full {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1200px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .page-header,
+  .summary-grid,
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-header {
+    flex-direction: column;
+  }
 }
 </style>
+

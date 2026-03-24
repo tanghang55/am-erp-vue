@@ -1,5 +1,5 @@
 import type { ProductSupplierQuote } from '@/modules/supplier/types'
-import type { DraftItem } from '@/modules/procurement/utils/skuSelection'
+import type { DraftItem } from '@/modules/procurement/utils/productSelection'
 
 export type QuoteSelection = {
   supplierId: number | null

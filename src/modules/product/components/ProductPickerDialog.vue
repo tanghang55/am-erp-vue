@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="visible" :title="labels.title" width="1000px">
+  <el-dialog v-model="visible" :title="dialogTitle" width="1000px">
     <el-form :inline="true" :model="searchForm" class="search-form">
       <el-form-item :label="labels.keyword">
         <el-input
@@ -20,6 +20,11 @@
           />
         </el-select>
       </el-form-item>
+      <el-form-item :label="labels.salesStatus">
+        <el-select v-model="searchForm.statuses" multiple collapse-tags collapse-tags-tooltip clearable style="width: 220px">
+          <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
       <el-form-item>
         <el-button type="primary" @click="handleSearch">{{ labels.search }}</el-button>
         <el-button @click="handleReset">{{ labels.reset }}</el-button>
@@ -27,7 +32,7 @@
     </el-form>
 
     <el-alert
-      v-if="!loading && props.warehouseId"
+      v-if="!loading && props.showInventoryColumns && props.warehouseId"
       :title="labels.inventoryFilterHint"
       type="info"
       :closable="false"
@@ -44,7 +49,25 @@
       @selection-change="handleSelectionChange"
       row-key="id"
     >
-      <el-table-column type="selection" width="55" :reserve-selection="true" />
+      <el-table-column
+        v-if="props.multiple"
+        type="selection"
+        width="55"
+        :reserve-selection="true"
+        :selectable="isRowSelectable"
+      />
+      <el-table-column v-else :label="labels.select" width="80" align="center">
+        <template #default="{ row }">
+          <el-button
+            link
+            type="primary"
+            :disabled="!isRowSelectable(row)"
+            @click="handleSingleSelect(row)"
+          >
+            {{ labels.select }}
+          </el-button>
+        </template>
+      </el-table-column>
       <el-table-column :label="labels.image" width="80">
         <template #default="{ row }">
           <el-image
@@ -66,19 +89,24 @@
         </template>
       </el-table-column>
       <el-table-column prop="marketplace" :label="labels.marketplace" width="90" align="center" />
-      <el-table-column :label="labels.pendingShipment" width="100" align="center">
+      <el-table-column :label="labels.salesStatus" width="120" align="center">
+        <template #default="{ row }">
+          <el-tag :type="statusTagType(row.status)" size="small">{{ getStatusLabel(row.status) }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column v-if="props.showInventoryColumns" :label="labels.pendingShipment" width="100" align="center">
         <template #default="{ row }">
           <span :class="{ 'qty-warning': row._inventory?.pending_shipment === 0 }">
             {{ row._inventory?.pending_shipment ?? '-' }}
           </span>
         </template>
       </el-table-column>
-      <el-table-column :label="labels.reservedQty" width="100" align="center">
+      <el-table-column v-if="props.showInventoryColumns" :label="labels.reservedQty" width="100" align="center">
         <template #default="{ row }">
           {{ row._inventory?.reserved_quantity ?? '-' }}
         </template>
       </el-table-column>
-      <el-table-column :label="labels.totalQty" width="100" align="center">
+      <el-table-column v-if="props.showInventoryColumns" :label="labels.totalQty" width="100" align="center">
         <template #default="{ row }">
           {{ row._inventory?.total_quantity ?? '-' }}
         </template>
@@ -113,24 +141,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { ElTable } from 'element-plus'
-import { getSkuList } from '@/modules/product/api'
+import { getProductList } from '@/modules/product/api/products'
 import { getBalanceList } from '@/modules/inventory/api'
-import type { Sku } from '@/modules/product/types'
+import type { ProductSummary, ProductListParams } from '@/modules/product/types'
 import type { InventoryBalance } from '@/modules/inventory/types'
 import { useLocaleStore } from '@/modules/common/stores/localeStore'
 
-interface ProductWithInventory extends Sku {
+interface ProductWithInventory extends ProductSummary {
   _inventory?: InventoryBalance
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   modelValue: boolean
   selected?: number[]
-  warehouseId: number | null
-}>()
+  warehouseId?: number | null
+  title?: string
+  multiple?: boolean
+  showInventoryColumns?: boolean
+  productParams?: Partial<ProductListParams>
+  selectable?: (product: ProductWithInventory) => boolean
+}>(), {
+  selected: () => [],
+  warehouseId: null,
+  title: '',
+  multiple: true,
+  showInventoryColumns: true,
+  productParams: () => ({})
+})
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
@@ -143,9 +183,11 @@ const labels = computed(() => {
   if (localeStore.isEnglish) {
     return {
       title: 'Select Products',
+      select: 'Select',
       keyword: 'Keyword',
       keywordPlaceholder: 'Search Product Code/Title',
       marketplace: 'Marketplace',
+      salesStatus: 'Status',
       search: 'Search',
       reset: 'Reset',
       image: 'Image',
@@ -163,10 +205,12 @@ const labels = computed(() => {
   }
   return {
     title: '选择产品',
-    keyword: '关键词',
-    keywordPlaceholder: '搜索产品编号/标题',
-    marketplace: '站点',
-    search: '搜索',
+    select: '选择',
+      keyword: '关键词',
+      keywordPlaceholder: '搜索产品编号/标题',
+      marketplace: '站点',
+      salesStatus: '销售状态',
+      search: '搜索',
     reset: '重置',
     image: '图片',
     productInfo: '产品信息',
@@ -182,7 +226,25 @@ const labels = computed(() => {
   }
 })
 
+const dialogTitle = computed(() => props.title || labels.value.title)
+
 const marketplaceOptions = ['US', 'CA', 'AU', 'UK', 'DE', 'JP']
+const statusOptions = computed(() => {
+  if (localeStore.isEnglish) {
+    return [
+      { value: 'DRAFT', label: 'Draft' },
+      { value: 'ON_SALE', label: 'On Sale' },
+      { value: 'REPLENISHING', label: 'Replenishing' },
+      { value: 'OFF_SHELF', label: 'Off Shelf' }
+    ]
+  }
+  return [
+    { value: 'DRAFT', label: '草稿' },
+    { value: 'ON_SALE', label: '正常销售' },
+    { value: 'REPLENISHING', label: '补货中' },
+    { value: 'OFF_SHELF', label: '下架' }
+  ]
+})
 
 const visible = computed({
   get: () => props.modelValue,
@@ -191,11 +253,12 @@ const visible = computed({
 
 const searchForm = reactive({
   keyword: '',
-  marketplace: ''
+  marketplace: '',
+  statuses: [] as string[]
 })
 
 const tableRef = ref<InstanceType<typeof ElTable>>()
-const list = ref<Sku[]>([])
+const list = ref<ProductSummary[]>([])
 const inventoryMap = ref<Map<number, InventoryBalance>>(new Map())
 const selected = ref<ProductWithInventory[]>([])
 const loading = ref(false)
@@ -220,25 +283,41 @@ const getFullImageUrl = (url: string) => {
   return `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}${url}`
 }
 
+const getStatusLabel = (status: string) => {
+  return statusOptions.value.find((item) => item.value === status)?.label || status || '-'
+}
+
+const statusTagType = (status: string) => {
+  const map: Record<string, string> = {
+    DRAFT: 'info',
+    ON_SALE: 'success',
+    REPLENISHING: 'warning',
+    OFF_SHELF: 'danger'
+  }
+  return map[status] || 'info'
+}
+
 const loadList = async () => {
   loading.value = true
   try {
-    const res = await getSkuList({
+    const res = await getProductList({
+      ...props.productParams,
       page: pagination.page,
       page_size: pagination.page_size,
       keyword: searchForm.keyword || undefined,
       marketplace: searchForm.marketplace || undefined,
-      warehouse_id: props.warehouseId || undefined,  // 后端会过滤只返回有待出库存的产品
-      exclude_combo_child: true  // 排除组合子产品（子产品已打包到主产品）
+      statuses: searchForm.statuses.length ? searchForm.statuses : undefined,
+      warehouse_id: props.warehouseId || undefined
     })
     if (res.data) {
       list.value = res.data.data
       pagination.total = res.data.total
 
       // Load inventory data for display
-      if (props.warehouseId) {
+      if (props.showInventoryColumns && props.warehouseId) {
         await loadInventoryData()
       }
+      await restoreSelection()
     }
   } finally {
     loading.value = false
@@ -258,7 +337,7 @@ const loadInventoryData = async () => {
     if (res.data?.data) {
       const map = new Map<number, InventoryBalance>()
       for (const balance of res.data.data) {
-        map.set(balance.sku_id, balance)
+        map.set(balance.product_id, balance)
       }
       inventoryMap.value = map
     }
@@ -279,11 +358,26 @@ const handlePageChange = () => {
 const handleReset = () => {
   searchForm.keyword = ''
   searchForm.marketplace = ''
+  searchForm.statuses = Array.isArray(props.productParams.statuses) ? [...props.productParams.statuses] : []
   handleSearch()
 }
 
 const handleSelectionChange = (rows: ProductWithInventory[]) => {
   selected.value = rows
+}
+
+const isRowSelectable = (row: ProductWithInventory) => {
+  if (props.selectable) {
+    return props.selectable(row)
+  }
+  return true
+}
+
+const handleSingleSelect = (row: ProductWithInventory) => {
+  if (!isRowSelectable(row)) {
+    return
+  }
+  selected.value = [row]
 }
 
 const handleCancel = () => {
@@ -304,10 +398,26 @@ const handleConfirm = async () => {
   }
 }
 
+const restoreSelection = async () => {
+  if (!props.selected?.length) {
+    return
+  }
+  const rows = listWithInventory.value.filter(item => props.selected?.includes(item.id))
+  selected.value = props.multiple ? rows : rows.slice(0, 1)
+  if (props.multiple && tableRef.value) {
+    await nextTick()
+    tableRef.value.clearSelection()
+    rows.forEach(row => tableRef.value?.toggleRowSelection(row, true))
+  }
+}
+
 watch(
   () => props.modelValue,
   value => {
     if (value) {
+      searchForm.keyword = ''
+      searchForm.marketplace = ''
+      searchForm.statuses = Array.isArray(props.productParams.statuses) ? [...props.productParams.statuses] : []
       selected.value = []
       inventoryMap.value = new Map()
       tableRef.value?.clearSelection()

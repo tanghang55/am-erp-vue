@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { selectQuoteSupplier, applyQuoteToDraftItem } from '@/modules/procurement/utils/quoteSelection'
-import type { DraftItem } from '@/modules/procurement/utils/skuSelection'
+import type { DraftItem } from '@/modules/procurement/utils/productSelection'
 import type { ProductSupplierQuote } from '@/modules/supplier/types'
 
 const quote = (overrides: Partial<ProductSupplierQuote>): ProductSupplierQuote => ({
@@ -52,7 +52,7 @@ describe('quoteSelection', () => {
 
   it('applies quote price and MOQ to draft item', () => {
     const item: DraftItem = {
-      sku_id: 1,
+      product_id: 1,
       qty_ordered: 2,
       unit_cost: 0
     }

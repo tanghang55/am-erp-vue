@@ -1,145 +1,222 @@
 <template>
-  <div class="dashboard-container">
-    <section class="hero">
-      <div class="hero-content">
-        <p class="hero-kicker">Operational Pulse</p>
-        <h1>
-          {{ authStore.user?.real_name || authStore.user?.username || 'Operator' }}
-          ，今天的业务概览
-        </h1>
-        <p class="hero-subtitle">聚焦库存、采购、发货、财务关键指标，随时掌控节奏。</p>
-        <div class="hero-chips">
-          <span class="chip">
-            <el-icon><Clock /></el-icon>
-            {{ todayLabel }}
-          </span>
-          <span class="chip">
-            <el-icon><CircleCheckFilled /></el-icon>
-            {{ isOnline ? 'Online' : 'Offline' }}
-          </span>
-          <span class="chip">
-            <el-icon><Menu /></el-icon>
-            Modules {{ menuStore.menus.length }}
-          </span>
+  <div class="dashboard-page">
+    <section class="section">
+      <div class="section-head">
+        <div class="section-title">订单趋势看板</div>
+        <div class="section-actions">
+          <el-radio-group v-model="trendDays" size="small">
+            <el-radio-button :label="7">最近7天</el-radio-button>
+            <el-radio-button :label="15">最近15天</el-radio-button>
+            <el-radio-button :label="30">最近30天</el-radio-button>
+          </el-radio-group>
+          <el-button size="small" @click="handleRefresh" :loading="loading">刷新</el-button>
+          <span class="refresh-time">更新：{{ lastRefreshedAt || '-' }}</span>
         </div>
       </div>
-      <div class="hero-panel">
-        <div class="hero-metric">
-          <span class="label">Active Modules</span>
-          <span class="value">{{ menuStore.menus.length }}</span>
-        </div>
-        <div class="hero-metric">
-          <span class="label">Roles</span>
-          <span class="value">{{ authStore.roles.length }}</span>
-        </div>
-        <div class="hero-metric">
-          <span class="label">Permissions</span>
-          <span class="value">{{ authStore.permissions.length }}</span>
-        </div>
-      </div>
-    </section>
 
-    <section class="kpi-grid">
-      <div v-for="card in kpiCards" :key="card.title" class="kpi-card" :class="card.tone">
-        <div class="kpi-header">
-          <span>{{ card.title }}</span>
-          <el-icon><component :is="card.icon" /></el-icon>
+      <div class="metric-grid">
+        <div class="metric-card">
+          <div class="metric-label">订单总量</div>
+          <div class="metric-value">{{ formatNumber(totalOrders) }}</div>
+          <div class="metric-note">环比 {{ orderPeriodChange }}</div>
         </div>
-        <div class="kpi-value">
-          <span class="number">{{ card.value }}</span>
-          <span class="unit" v-if="card.unit">{{ card.unit }}</span>
+        <div class="metric-card">
+          <div class="metric-label">销售额</div>
+          <div class="metric-value">{{ formatCurrency(totalSales) }}</div>
+          <div class="metric-note">环比 {{ salesPeriodChange }}</div>
         </div>
-        <div class="kpi-footer">
-          <span class="delta" :class="card.deltaTone">{{ card.delta }}</span>
-          <span class="delta-label">{{ card.deltaLabel }}</span>
+        <div class="metric-card">
+          <div class="metric-label">平均客单价</div>
+          <div class="metric-value">{{ formatCurrency(avgOrderAmount) }}</div>
+          <div class="metric-note">销售额 / 订单量</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">昨日单量 / 销售额</div>
+          <div class="metric-value">{{ formatNumber(yesterdayOrders) }} / {{ formatCurrency(yesterdaySales) }}</div>
+          <div class="metric-note">最近一天快照</div>
         </div>
       </div>
-    </section>
 
-    <section class="grid-panels">
-      <el-card shadow="hover" class="panel">
+      <el-card shadow="never" class="panel-card">
         <template #header>
           <div class="panel-title">
-            <span>Operations Radar</span>
-            <el-tag type="info" effect="plain">今日</el-tag>
-          </div>
-        </template>
-        <div class="radar-list">
-          <div class="radar-item" v-for="item in radarItems" :key="item.label">
-            <div>
-              <p class="radar-label">{{ item.label }}</p>
-              <p class="radar-desc">{{ item.desc }}</p>
+            <div class="chart-legend">
+              <span class="legend-item">
+                <i class="legend-dot legend-order"></i>
+                订单量
+              </span>
+              <span class="legend-item">
+                <i class="legend-dot legend-sales"></i>
+                销售额
+              </span>
             </div>
-            <div class="radar-value">
-              <span>{{ item.value }}</span>
-              <el-progress :percentage="item.progress" :status="item.status" :stroke-width="8" />
-            </div>
-          </div>
-        </div>
-      </el-card>
-
-      <el-card shadow="hover" class="panel">
-        <template #header>
-          <div class="panel-title">
-            <span>Module Map</span>
-            <el-button link type="primary" @click="router.push('/system/settings')">
-              系统配置
-            </el-button>
+            <span class="panel-note">近{{ trendDays }}天</span>
           </div>
         </template>
-        <div class="module-grid">
-          <div v-for="menu in topMenus" :key="menu.id" class="module-chip">
-            <span>{{ menu.title || menu.name }}</span>
-          </div>
-          <div v-if="topMenus.length === 0" class="module-empty">
-            <el-empty description="暂无可用模块" :image-size="80" />
-          </div>
+
+        <div class="line-chart-wrap">
+          <svg :viewBox="`0 0 ${chartWidth} ${chartHeight}`" class="line-chart-svg" preserveAspectRatio="none">
+            <g v-for="line in chartGridLines" :key="line.y">
+              <line
+                :x1="chartPadding.left"
+                :x2="chartWidth - chartPadding.right"
+                :y1="line.y"
+                :y2="line.y"
+                class="chart-grid-line"
+              />
+              <text :x="6" :y="line.y + 4" class="chart-axis-text">{{ line.orderLabel }}</text>
+              <text :x="chartWidth - 4" :y="line.y + 4" class="chart-axis-text" text-anchor="end">
+                {{ line.salesLabel }}
+              </text>
+            </g>
+
+            <polyline :points="orderLinePoints" class="chart-line-order" />
+            <polyline :points="salesLinePoints" class="chart-line-sales" />
+
+            <g v-for="point in chartPoints" :key="point.date">
+              <circle :cx="point.x" :cy="point.orderY" r="2.6" class="chart-point-order" />
+              <circle :cx="point.x" :cy="point.salesY" r="2.6" class="chart-point-sales" />
+            </g>
+
+            <g v-for="tick in xAxisTicks" :key="tick.date">
+              <text :x="tick.x" :y="chartHeight - 6" text-anchor="middle" class="chart-axis-text">
+                {{ tick.label }}
+              </text>
+            </g>
+          </svg>
         </div>
       </el-card>
     </section>
 
-    <section class="grid-panels">
-      <el-card shadow="hover" class="panel">
+    <section class="section double-grid">
+      <el-card shadow="never" class="panel-card">
         <template #header>
           <div class="panel-title">
-            <span>Key Roles</span>
+            <span>采购计划（重要提醒）</span>
+            <span class="panel-note">高风险 {{ procurementHighRiskCount }} 条</span>
           </div>
         </template>
-        <div class="role-list">
-          <el-tag
-            v-for="role in authStore.roles"
-            :key="role.id"
-            type="success"
-            size="large"
-            effect="plain"
-            class="role-tag"
-          >
-            <el-icon><Avatar /></el-icon>
-            {{ role.display_name }}
-          </el-tag>
-          <el-empty v-if="authStore.roles.length === 0" description="No roles assigned" :image-size="90" />
+
+        <div class="mini-kpi-row">
+          <div class="mini-kpi">
+            <span>待处理</span>
+            <strong>{{ formatNumber(procurementPendingCount) }}</strong>
+          </div>
+          <div class="mini-kpi">
+            <span>建议采购总量</span>
+            <strong>{{ formatNumber(procurementSuggestedTotal) }}</strong>
+          </div>
+          <div class="mini-kpi">
+            <span>超24小时</span>
+            <strong>{{ formatNumber(procurementAgingCount) }}</strong>
+          </div>
         </div>
+
+        <div class="dist-block">
+          <div class="dist-title">风险分布</div>
+          <div class="dist-row">
+            <span>HIGH</span>
+            <el-progress :percentage="procurementRiskPercents.high" :stroke-width="10" color="#ef4444" />
+          </div>
+          <div class="dist-row">
+            <span>MEDIUM</span>
+            <el-progress :percentage="procurementRiskPercents.medium" :stroke-width="10" color="#f59e0b" />
+          </div>
+          <div class="dist-row">
+            <span>LOW</span>
+            <el-progress :percentage="procurementRiskPercents.low" :stroke-width="10" color="#22c55e" />
+          </div>
+        </div>
+
+        <el-table :data="procurementRows.slice(0, 6)" border stripe size="small" max-height="240">
+          <el-table-column prop="product_label" label="产品" width="140" />
+          <el-table-column prop="shortage_qty" label="缺口" width="90" align="right" />
+          <el-table-column prop="suggested_qty" label="建议采购" width="100" align="right" />
+          <el-table-column prop="plan_age_hours" label="滞留(小时)" width="100" align="right" />
+          <el-table-column label="风险" width="80" align="center">
+            <template #default="{ row }">
+              <el-tag :type="getRiskTagType(row.level)">{{ row.level }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="reason" label="提醒原因" min-width="160" show-overflow-tooltip />
+        </el-table>
       </el-card>
 
-      <el-card shadow="hover" class="panel">
+      <el-card shadow="never" class="panel-card">
         <template #header>
           <div class="panel-title">
-            <span>Quick Actions</span>
+            <span>发货在途</span>
+            <span class="panel-note">异常 {{ transitAbnormalCount }} 票</span>
           </div>
         </template>
-        <div class="quick-actions">
-          <el-button type="primary" @click="router.push('/inventory/warehouses')" :icon="House">
-            仓库管理
-          </el-button>
-          <el-button type="warning" @click="router.push('/procurement/purchase-orders')" :icon="List">
-            采购单
-          </el-button>
-          <el-button type="success" @click="router.push('/shipping/shipments')" :icon="Van">
-            发货单
-          </el-button>
-          <el-button type="info" @click="router.push('/finance/cash-ledger')" :icon="Coin">
-            现金流水
-          </el-button>
+
+        <div class="transit-overview">
+          <div class="donut" :style="transitDonutStyle">
+            <div class="donut-inner">
+              <div class="donut-num">{{ transitShipmentCount }}</div>
+              <div class="donut-text">在途总票</div>
+            </div>
+          </div>
+          <div class="donut-legend">
+            <div class="legend-row">
+              <i class="legend-dot legend-normal"></i>
+              正常：{{ transitStatusCounts.normal }}
+            </div>
+            <div class="legend-row">
+              <i class="legend-dot legend-delay"></i>
+              延迟：{{ transitStatusCounts.delay }}
+            </div>
+            <div class="legend-row">
+              <i class="legend-dot legend-risk"></i>
+              高风险：{{ transitStatusCounts.risk }}
+            </div>
+            <div class="legend-row eta-row">7天内ETA：{{ transitEtaSoonCount }}</div>
+          </div>
+        </div>
+
+        <div class="eta-bars">
+          <div v-for="bucket in etaBuckets" :key="bucket.label" class="eta-item">
+            <div class="eta-col">
+              <div class="eta-fill" :style="{ height: `${bucket.percent}%` }"></div>
+            </div>
+            <div class="eta-count">{{ bucket.count }}</div>
+            <div class="eta-label">{{ bucket.label }}</div>
+          </div>
+        </div>
+
+        <el-table :data="transitRows.slice(0, 6)" border stripe size="small" max-height="220">
+          <el-table-column prop="shipment_no" label="货件号" width="170" />
+          <el-table-column prop="days_in_transit" label="在途天数" width="90" align="right" />
+          <el-table-column prop="eta" label="ETA" width="105" />
+          <el-table-column label="状态" width="90" align="center">
+            <template #default="{ row }">
+              <el-tag :type="getTransitTagType(row.status)">{{ getTransitStatusLabel(row.status) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="remark" label="备注" min-width="150" show-overflow-tooltip />
+        </el-table>
+      </el-card>
+    </section>
+
+    <section class="section">
+      <div class="section-title">库存断货风险</div>
+      <el-card shadow="never" class="panel-card">
+        <div class="risk-list">
+          <div v-for="row in inventoryRiskRows" :key="row.product_label" class="risk-row">
+            <div class="risk-main">
+              <div class="risk-sku">
+                <span>{{ row.product_label }}</span>
+                <el-tag :type="getRiskTagType(row.level)" size="small">{{ row.level }}</el-tag>
+              </div>
+              <div class="risk-values">
+                可售天数 {{ row.sellable_days }} / 现货 {{ row.on_hand }} / 在途 {{ row.in_transit }} / 日均 {{ row.daily_sales }}
+              </div>
+              <div class="risk-suggestion">{{ row.suggestion }}</div>
+            </div>
+            <div class="risk-bar">
+              <el-progress :percentage="toCoveragePercent(row.sellable_days)" :stroke-width="12" />
+            </div>
+          </div>
         </div>
       </el-card>
     </section>
@@ -147,393 +224,351 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/modules/identity/stores/authStore'
-import { useMenuStore } from '@/modules/identity/stores/menuStore'
+import { computed, onMounted, ref } from 'vue'
+import { getSalesOrderList } from '@/modules/sales/api'
+import type { SalesOrder } from '@/modules/sales/types'
+import { listReplenishmentPlans } from '@/modules/procurement/api'
+import type { ReplenishmentPlan } from '@/modules/procurement/types'
+import { getShipmentList } from '@/modules/shipping/api'
+import type { Shipment } from '@/modules/shipping/types'
+import { getBalanceList } from '@/modules/inventory/api'
+import type { InventoryBalance } from '@/modules/inventory/types'
+import type {
+  ChartPoint,
+  EtaBucket,
+  InventoryRiskRow,
+  ProcurementReminderRow,
+  TransitRow,
+  TrendPoint
+} from '@/modules/dashboard/types'
 import {
-  Menu,
-  Clock,
-  CircleCheckFilled,
-  Box,
-  WarningFilled,
-  Money,
-  Avatar,
-  House,
-  List,
-  Van,
-  Coin
-} from '@element-plus/icons-vue'
+  buildInventoryRiskRows,
+  buildProcurementRows,
+  buildTransitRows,
+  buildTrendSeries,
+  calcPeriodChange,
+  formatCurrency,
+  formatDateTime,
+  formatNumber,
+  getRiskTagType,
+  getTransitStatusLabel,
+  getTransitTagType,
+  parseNumber,
+  toCoveragePercent
+} from '@/modules/dashboard/utils/dashboard'
+import '@/modules/dashboard/styles/dashboard.css'
 
-const router = useRouter()
-const authStore = useAuthStore()
-const menuStore = useMenuStore()
+defineOptions({
+  name: 'DashboardWorkbench'
+})
 
-const todayLabel = new Date().toLocaleDateString()
-const isOnline = navigator.onLine
+const loading = ref(false)
+const lastRefreshedAt = ref('')
+const trendDays = ref<7 | 15 | 30>(15)
+const orderSeries = ref<TrendPoint[]>([])
+const salesSeries = ref<TrendPoint[]>([])
+const procurementRows = ref<ProcurementReminderRow[]>([])
+const transitRows = ref<TransitRow[]>([])
+const inventoryRiskRows = ref<InventoryRiskRow[]>([])
 
-const kpiCards = [
-  {
-    title: '库存预警 SKU',
-    value: 0,
-    unit: '',
-    delta: '0',
-    deltaLabel: 'vs yesterday',
-    tone: 'tone-orange',
-    deltaTone: 'neutral',
-    icon: WarningFilled
-  },
-  {
-    title: '采购待确认',
-    value: 0,
-    unit: '',
-    delta: '0',
-    deltaLabel: 'pending',
-    tone: 'tone-blue',
-    deltaTone: 'neutral',
-    icon: Box
-  },
-  {
-    title: '发货待处理',
-    value: 0,
-    unit: '',
-    delta: '0',
-    deltaLabel: 'processing',
-    tone: 'tone-green',
-    deltaTone: 'neutral',
-    icon: Van
-  },
-  {
-    title: '未对账流水',
-    value: 0,
-    unit: '',
-    delta: '0',
-    deltaLabel: 'unreconciled',
-    tone: 'tone-olive',
-    deltaTone: 'neutral',
-    icon: Money
+const chartWidth = 1000
+const chartHeight = 280
+const chartPadding = {
+  left: 42,
+  right: 42,
+  top: 20,
+  bottom: 34
+}
+
+const todayDate = computed(() => {
+  const now = new Date()
+  const month = `${now.getMonth() + 1}`.padStart(2, '0')
+  const day = `${now.getDate()}`.padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+})
+
+const visibleOrderSeries = computed(() => orderSeries.value.slice(-trendDays.value))
+const visibleSalesSeries = computed(() => salesSeries.value.slice(-trendDays.value))
+
+const totalOrders = computed(() => visibleOrderSeries.value.reduce((sum, item) => sum + item.value, 0))
+const totalSales = computed(() => visibleSalesSeries.value.reduce((sum, item) => sum + item.value, 0))
+const avgOrderAmount = computed(() => (totalOrders.value > 0 ? totalSales.value / totalOrders.value : 0))
+const yesterdayOrders = computed(() => visibleOrderSeries.value.at(-1)?.value ?? 0)
+const yesterdaySales = computed(() => visibleSalesSeries.value.at(-1)?.value ?? 0)
+
+const orderPeriodChange = computed(() => calcPeriodChange(orderSeries.value.map(item => item.value), trendDays.value))
+const salesPeriodChange = computed(() => calcPeriodChange(salesSeries.value.map(item => item.value), trendDays.value))
+
+const procurementPendingCount = computed(() => procurementRows.value.length)
+const procurementHighRiskCount = computed(() => procurementRows.value.filter(item => item.level === 'HIGH').length)
+const procurementSuggestedTotal = computed(() => procurementRows.value.reduce((sum, item) => sum + item.suggested_qty, 0))
+const procurementAgingCount = computed(() => procurementRows.value.filter(item => item.plan_age_hours >= 24).length)
+
+const procurementRiskPercents = computed(() => {
+  const total = procurementRows.value.length
+  if (total === 0) {
+    return { high: 0, medium: 0, low: 0 }
   }
-]
+  const high = Math.round((procurementRows.value.filter(item => item.level === 'HIGH').length / total) * 100)
+  const medium = Math.round((procurementRows.value.filter(item => item.level === 'MEDIUM').length / total) * 100)
+  const low = Math.max(0, 100 - high - medium)
+  return { high, medium, low }
+})
 
-const radarItems = [
-  { label: '库存周转', desc: '近 7 天出入库节奏', value: '稳定', progress: 72, status: 'success' },
-  { label: '采购节拍', desc: '待下单与已发货', value: '偏慢', progress: 46, status: 'warning' },
-  { label: '发货达成', desc: '头程与入库完成度', value: '良好', progress: 78, status: 'success' },
-  { label: '资金健康度', desc: '现金流水与成本快照', value: '正常', progress: 64, status: 'success' }
-]
+const transitShipmentCount = computed(() => transitRows.value.length)
+const transitStatusCounts = computed(() => ({
+  normal: transitRows.value.filter(item => item.status === 'NORMAL').length,
+  delay: transitRows.value.filter(item => item.status === 'DELAY').length,
+  risk: transitRows.value.filter(item => item.status === 'RISK').length
+}))
+const transitAbnormalCount = computed(() => transitStatusCounts.value.delay + transitStatusCounts.value.risk)
 
-const topMenus = computed(() => menuStore.menus.slice(0, 8))
+const transitDonutStyle = computed(() => {
+  const total = transitShipmentCount.value
+  if (total === 0) {
+    return { background: '#e5e7eb' }
+  }
+  const normalPct = (transitStatusCounts.value.normal / total) * 100
+  const delayPct = (transitStatusCounts.value.delay / total) * 100
+  const riskPct = Math.max(0, 100 - normalPct - delayPct)
+  return {
+    background: `conic-gradient(#22c55e 0 ${normalPct}%, #f59e0b ${normalPct}% ${normalPct + delayPct}%, #ef4444 ${normalPct + delayPct}% ${normalPct + delayPct + riskPct}%)`
+  }
+})
 
-onMounted(() => {
-  menuStore.loadMenus()
+const transitEtaSoonCount = computed(() => {
+  const today = new Date(todayDate.value)
+  return transitRows.value.filter((item) => {
+    const eta = new Date(item.eta)
+    const diffDays = Math.floor((eta.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
+    return diffDays >= 0 && diffDays <= 7
+  }).length
+})
+
+const etaBuckets = computed<EtaBucket[]>(() => {
+  const today = new Date(todayDate.value)
+  const dayCounts: EtaBucket[] = Array.from({ length: 7 }, (_, idx) => ({
+    label: `D+${idx + 1}`,
+    count: 0,
+    percent: 0
+  }))
+  for (const row of transitRows.value) {
+    const eta = new Date(row.eta)
+    const diffDays = Math.floor((eta.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
+    if (diffDays >= 1 && diffDays <= 7) {
+      dayCounts[diffDays - 1].count += 1
+    }
+  }
+  const maxCount = Math.max(...dayCounts.map(item => item.count), 1)
+  return dayCounts.map(item => ({
+    ...item,
+    percent: item.count === 0 ? 4 : Math.round((item.count / maxCount) * 100)
+  }))
+})
+
+const chartPoints = computed<ChartPoint[]>(() => {
+  const orders = visibleOrderSeries.value
+  const sales = visibleSalesSeries.value
+  const count = Math.min(orders.length, sales.length)
+  if (count === 0) return []
+
+  const innerWidth = chartWidth - chartPadding.left - chartPadding.right
+  const innerHeight = chartHeight - chartPadding.top - chartPadding.bottom
+  const stepX = count > 1 ? innerWidth / (count - 1) : 0
+  const maxOrders = Math.max(...orders.map(item => item.value), 1)
+  const maxSales = Math.max(...sales.map(item => item.value), 1)
+
+  return Array.from({ length: count }, (_, idx) => {
+    const orderItem = orders[idx]
+    const salesItem = sales[idx]
+    const x = chartPadding.left + stepX * idx
+    const orderY = chartPadding.top + innerHeight - (orderItem.value / maxOrders) * innerHeight
+    const salesY = chartPadding.top + innerHeight - (salesItem.value / maxSales) * innerHeight
+    return {
+      date: orderItem.date,
+      label: orderItem.label,
+      x,
+      orderY,
+      salesY
+    }
+  })
+})
+
+const orderLinePoints = computed(() => chartPoints.value.map(point => `${point.x},${point.orderY}`).join(' '))
+const salesLinePoints = computed(() => chartPoints.value.map(point => `${point.x},${point.salesY}`).join(' '))
+
+const xAxisTicks = computed(() => {
+  const points = chartPoints.value
+  if (points.length <= 8) return points
+  const step = Math.ceil(points.length / 7)
+  return points.filter((point, idx) => idx % step === 0 || idx === points.length - 1)
+})
+
+const chartGridLines = computed(() => {
+  const lines: Array<{ y: number; orderLabel: string; salesLabel: string }> = []
+  const innerHeight = chartHeight - chartPadding.top - chartPadding.bottom
+  const orderMax = Math.max(...visibleOrderSeries.value.map(item => item.value), 1)
+  const salesMax = Math.max(...visibleSalesSeries.value.map(item => item.value), 1)
+  const ticks = [0, 0.25, 0.5, 0.75, 1]
+
+  for (const tick of ticks) {
+    const y = chartPadding.top + innerHeight * (1 - tick)
+    lines.push({
+      y,
+      orderLabel: formatNumber(Math.round(orderMax * tick)),
+      salesLabel: formatCurrency(Math.round(salesMax * tick))
+    })
+  }
+  return lines
+})
+
+const fetchSalesOrders = async () => {
+  const pageSize = 200
+  const maxPages = 20
+  const allRows: SalesOrder[] = []
+  let page = 1
+  let totalPages = 1
+
+  while (page <= totalPages && page <= maxPages) {
+    const res = await getSalesOrderList({
+      page,
+      page_size: pageSize
+    })
+    const rows = res.data.data || []
+    const total = res.data.total || 0
+    totalPages = Math.max(1, Math.ceil(total / pageSize))
+    allRows.push(...rows)
+    if (rows.length === 0) {
+      break
+    }
+    page += 1
+  }
+
+  return allRows
+}
+
+const fetchReplenishmentPlansForToday = async () => {
+  const pageSize = 200
+  const maxPages = 10
+  const allRows: ReplenishmentPlan[] = []
+  let page = 1
+  let totalPages = 1
+
+  while (page <= totalPages && page <= maxPages) {
+    const res = await listReplenishmentPlans({
+      page,
+      page_size: pageSize,
+      date: todayDate.value,
+      status: 'PENDING'
+    })
+    const rows = res.data.data || []
+    const total = res.data.total || 0
+    totalPages = Math.max(1, Math.ceil(total / pageSize))
+    allRows.push(...rows)
+    if (rows.length === 0) {
+      break
+    }
+    page += 1
+  }
+
+  return allRows
+}
+
+const fetchShippedShipments = async () => {
+  const pageSize = 200
+  const maxPages = 10
+  const allRows: Shipment[] = []
+  let page = 1
+  let totalPages = 1
+
+  while (page <= totalPages && page <= maxPages) {
+    const res = await getShipmentList({
+      page,
+      page_size: pageSize,
+      status: 'SHIPPED'
+    })
+    const rows = res.data.data || []
+    const total = res.data.total || 0
+    totalPages = Math.max(1, Math.ceil(total / pageSize))
+    allRows.push(...rows)
+    if (rows.length === 0) {
+      break
+    }
+    page += 1
+  }
+
+  return allRows
+}
+
+const fetchInventoryRiskBalances = async () => {
+  const fetchBalances = async (params: { low_stock?: boolean; zero_stock?: boolean; low_stock_threshold?: number }) => {
+    const pageSize = 200
+    const maxPages = 10
+    const allRows: InventoryBalance[] = []
+    let page = 1
+    let totalPages = 1
+
+    while (page <= totalPages && page <= maxPages) {
+      const res = await getBalanceList({
+        page,
+        page_size: pageSize,
+        ...params
+      })
+      const rows = res.data.data || []
+      const total = res.data.total || 0
+      totalPages = Math.max(1, Math.ceil(total / pageSize))
+      allRows.push(...rows)
+      if (rows.length === 0) {
+        break
+      }
+      page += 1
+    }
+
+    return allRows
+  }
+
+  const [lowStockRows, zeroStockRows] = await Promise.all([
+    fetchBalances({ low_stock: true, low_stock_threshold: 30 }),
+    fetchBalances({ zero_stock: true })
+  ])
+
+  const merged = new Map<number, InventoryBalance>()
+  for (const row of [...lowStockRows, ...zeroStockRows]) {
+    merged.set(row.id, row)
+  }
+  return Array.from(merged.values())
+}
+
+const loadDashboard = async () => {
+  loading.value = true
+  try {
+    const [salesOrders, plans, shipments, balances] = await Promise.all([
+      fetchSalesOrders().catch(() => [] as SalesOrder[]),
+      fetchReplenishmentPlansForToday().catch(() => [] as ReplenishmentPlan[]),
+      fetchShippedShipments().catch(() => [] as Shipment[]),
+      fetchInventoryRiskBalances().catch(() => [] as InventoryBalance[])
+    ])
+
+    const trend = buildTrendSeries(salesOrders)
+    orderSeries.value = trend.orderRows
+    salesSeries.value = trend.salesRows
+    procurementRows.value = buildProcurementRows(plans)
+    transitRows.value = buildTransitRows(shipments, todayDate.value)
+    inventoryRiskRows.value = buildInventoryRiskRows(balances, trend.productDailySales)
+    lastRefreshedAt.value = formatDateTime(new Date())
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleRefresh = async () => {
+  await loadDashboard()
+}
+
+onMounted(async () => {
+  await loadDashboard()
 })
 </script>
 
-<style scoped>
-.dashboard-container {
-  width: 100%;
-  padding: 24px;
-  font-family: "IBM Plex Sans", "Noto Sans SC", "Microsoft YaHei", sans-serif;
-  background: radial-gradient(circle at top left, rgba(240, 244, 255, 0.8), transparent 45%),
-    radial-gradient(circle at 80% 20%, rgba(246, 240, 232, 0.8), transparent 40%),
-    #f7f7f3;
-}
+<style scoped src="@/modules/dashboard/styles/dashboard.css"></style>
 
-.hero {
-  display: grid;
-  grid-template-columns: 1.4fr 0.6fr;
-  gap: 20px;
-  padding: 28px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #0f2027 0%, #203a43 45%, #2c5364 100%);
-  color: #f9fafb;
-  position: relative;
-  overflow: hidden;
-  margin-bottom: 24px;
-}
-
-.hero::after {
-  content: '';
-  position: absolute;
-  width: 320px;
-  height: 320px;
-  right: -80px;
-  top: -120px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.18), transparent 65%);
-}
-
-.hero-content {
-  position: relative;
-  z-index: 1;
-}
-
-.hero-kicker {
-  margin: 0 0 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  font-size: 12px;
-  opacity: 0.7;
-}
-
-.hero h1 {
-  margin: 0 0 10px;
-  font-size: 28px;
-  font-weight: 700;
-}
-
-.hero-subtitle {
-  margin: 0 0 16px;
-  font-size: 14px;
-  opacity: 0.85;
-  max-width: 520px;
-}
-
-.hero-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  font-size: 12px;
-}
-
-.hero-panel {
-  display: grid;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
-  gap: 14px;
-  z-index: 1;
-}
-
-.hero-metric {
-  background: rgba(255, 255, 255, 0.14);
-  border-radius: 14px;
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.hero-metric .label {
-  font-size: 12px;
-  opacity: 0.7;
-}
-
-.hero-metric .value {
-  font-size: 22px;
-  font-weight: 600;
-}
-
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.kpi-card {
-  padding: 16px;
-  border-radius: 14px;
-  background: #ffffff;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.kpi-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.kpi-value {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.kpi-value .number {
-  font-size: 28px;
-  font-weight: 700;
-  color: #111827;
-}
-
-.kpi-value .unit {
-  font-size: 13px;
-  color: #9ca3af;
-}
-
-.kpi-footer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.delta {
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-weight: 600;
-}
-
-.delta.neutral {
-  background: rgba(15, 23, 42, 0.06);
-  color: #374151;
-}
-
-.tone-orange {
-  border-left: 4px solid #f59e0b;
-}
-
-.tone-blue {
-  border-left: 4px solid #3b82f6;
-}
-
-.tone-green {
-  border-left: 4px solid #10b981;
-}
-
-.tone-olive {
-  border-left: 4px solid #6b7280;
-}
-
-.grid-panels {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
-  margin-bottom: 24px;
-}
-
-.panel {
-  border-radius: 16px;
-  overflow: hidden;
-}
-
-.panel-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 16px;
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.radar-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.radar-item {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px;
-  align-items: center;
-}
-
-.radar-label {
-  margin: 0;
-  font-weight: 600;
-  color: #111827;
-}
-
-.radar-desc {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.radar-value {
-  min-width: 160px;
-  text-align: right;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 12px;
-  color: #374151;
-}
-
-.module-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.module-chip {
-  padding: 6px 10px;
-  border-radius: 10px;
-  background: rgba(15, 23, 42, 0.05);
-  font-size: 12px;
-  color: #374151;
-}
-
-.module-empty {
-  width: 100%;
-}
-
-.role-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.role-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  font-size: 14px;
-}
-
-.quick-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.quick-actions .el-button {
-  width: 100%;
-  justify-content: flex-start;
-}
-
-@media (max-width: 1200px) {
-  .kpi-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .grid-panels {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 900px) {
-  .hero {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 768px) {
-  .dashboard-container {
-    padding: 16px;
-  }
-
-  .kpi-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .quick-actions {
-    grid-template-columns: 1fr;
-  }
-}
-</style>

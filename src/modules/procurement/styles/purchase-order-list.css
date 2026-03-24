@@ -1,0 +1,274 @@
+.purchase-order-list {
+  padding: 20px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-header .title {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.search-form {
+  margin: 0;
+  width: 100%;
+}
+
+.search-toolbar {
+  margin-bottom: 20px;
+  padding: 16px 18px;
+  border: 1px solid #ebeef5;
+  border-radius: 12px;
+  background: #fafafa;
+}
+
+.search-form__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.search-form__row + .search-form__row {
+  margin-top: 12px;
+}
+
+.search-form__keyword :deep(.el-input) {
+  width: 320px;
+}
+
+.search-form__supplier {
+  min-width: 280px;
+  flex: 1 1 280px;
+}
+
+.search-form__status :deep(.el-select),
+.search-form__marketplace :deep(.el-select) {
+  width: 160px;
+}
+
+.search-form__actions {
+  margin-left: auto;
+}
+
+.po-products {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.po-products__item {
+  min-width: 0;
+}
+
+.po-products__sku {
+  font-size: 12px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.po-products__qty {
+  margin-left: 6px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.po-products__title,
+.po-products__more {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.po-products__rules {
+  margin-top: 4px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.po-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.po-main-number {
+  font-weight: 700;
+  color: #111827;
+}
+
+.po-main-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.supplier-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.supplier-name {
+  font-weight: 600;
+  color: #111827;
+}
+
+.supplier-meta,
+.timeline-block {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+.po-items-panel {
+  margin-left: 12px;
+  padding-left: 8px;
+  border-left: 2px solid #ebeef5;
+}
+
+.po-items-table {
+  margin-top: 4px;
+  width: 100%;
+}
+
+.po-items-table :deep(.el-table__header th.el-table__cell) {
+  background: #f5f7fa;
+  color: #606266;
+  font-weight: 600;
+}
+
+.po-items-table :deep(.el-table__cell) {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.po-product-cell {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.po-product-image-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #f8f8f8;
+}
+
+.po-product-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.po-product-image-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #909399;
+}
+
+.po-product-info {
+  min-width: 0;
+}
+
+.po-product-sku {
+  font-size: 12px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.po-product-title {
+  margin-top: 2px;
+  font-size: 11px;
+  color: #909399;
+  line-height: 1.35;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.po-product-rules {
+  margin-top: 6px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.po-items-empty {
+  color: #909399;
+  font-size: 12px;
+  margin-left: 24px;
+  padding: 6px 0;
+}
+
+@media (max-width: 1400px) {
+  .search-form__actions {
+    margin-left: 0;
+  }
+
+  .po-items-panel {
+    margin-left: 12px;
+    padding-left: 8px;
+  }
+
+  .po-product-cell {
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .po-product-image-wrap {
+    width: 52px;
+    height: 52px;
+  }
+}
+
+@media (max-width: 640px) {
+  .search-form__keyword {
+    width: 100%;
+  }
+
+  .search-form__keyword :deep(.el-input) {
+    width: 100%;
+  }
+
+  .search-form__supplier,
+  .search-form__status,
+  .search-form__marketplace,
+  .search-form__actions {
+    width: 100%;
+  }
+}
+
+.form-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+}
+
+.inspect-item-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+}

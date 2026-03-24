@@ -11,76 +11,133 @@
         </div>
       </template>
 
-      <!-- 筛选区域 -->
-      <el-form :inline="true" :model="queryParams" class="filter-form">
-        <el-form-item :label="labels.category">
-          <el-select
-            v-model="queryParams.category"
-            :placeholder="labels.all"
-            clearable
-            style="width: 120px"
-          >
-            <el-option
-              v-for="item in categoryOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
+      <div class="search-toolbar">
+        <div class="search-toolbar__intro">
+          <div class="search-toolbar__title">{{ labels.searchTitle }}</div>
+          <div class="search-toolbar__meta">{{ labels.searchDescription }}</div>
+        </div>
+        <el-form :inline="true" :model="queryParams" class="filter-form">
+          <el-form-item :label="labels.keyword" class="filter-form__keyword">
+            <el-input
+              v-model="queryParams.keyword"
+              :placeholder="labels.keywordPlaceholder"
+              clearable
+              style="width: 240px"
+              @keyup.enter="handleQuery"
+              @clear="handleQuery"
             />
-          </el-select>
-        </el-form-item>
+          </el-form-item>
 
-        <el-form-item :label="labels.status">
-          <el-select v-model="queryParams.status" :placeholder="labels.all" clearable style="width: 120px">
-            <el-option
-              v-for="item in statusOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-        </el-form-item>
+          <el-form-item :label="labels.category">
+            <el-select
+              v-model="queryParams.category"
+              :placeholder="labels.all"
+              clearable
+              style="width: 120px"
+              @clear="handleQuery"
+            >
+              <el-option
+                v-for="item in categoryOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
 
-        <el-form-item :label="labels.keyword">
-          <el-input
-            v-model="queryParams.keyword"
-            :placeholder="labels.keywordPlaceholder"
-            clearable
-            style="width: 220px"
-          />
-        </el-form-item>
+          <el-form-item :label="labels.status">
+            <el-select
+              v-model="queryParams.status"
+              :placeholder="labels.all"
+              clearable
+              style="width: 120px"
+              @clear="handleQuery"
+            >
+              <el-option
+                v-for="item in statusOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
 
-        <el-form-item>
-          <el-button type="primary" @click="handleQuery">{{ labels.search }}</el-button>
-          <el-button @click="handleReset">{{ labels.reset }}</el-button>
-        </el-form-item>
-      </el-form>
+          <el-form-item class="filter-form__actions">
+            <el-button type="primary" @click="handleQuery">{{ labels.search }}</el-button>
+            <el-button @click="handleReset">{{ labels.reset }}</el-button>
+          </el-form-item>
+        </el-form>
+      </div>
 
       <!-- 材料列表 -->
       <el-table v-loading="loading" :data="itemList" border stripe>
-        <el-table-column prop="item_code" :label="labels.itemCode" width="120" />
-        <el-table-column prop="item_name" :label="labels.itemName" min-width="150" />
+        <el-table-column :label="labels.itemInfo" min-width="240">
+          <template #default="{ row }">
+            <div class="item-main">
+              <div class="item-main__code">{{ row.item_code }}</div>
+              <div class="item-main__name">{{ row.item_name }}</div>
+              <div v-if="row.specification" class="item-main__spec">{{ row.specification }}</div>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column :label="labels.category" width="100">
           <template #default="{ row }">
             <el-tag>{{ getPackagingCategoryLabel(row.category) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="specification" :label="labels.specification" min-width="150" show-overflow-tooltip />
-        <el-table-column :label="labels.unitCost" width="120" align="right">
+        <el-table-column :label="labels.stockInfo" min-width="180">
           <template #default="{ row }">
-            {{ row.currency }} {{ Number(row.unit_cost).toFixed(4) }}
+            <div class="metric-block">
+              <div class="metric-line">
+                <span class="metric-label">{{ labels.stockQty }}</span>
+                <span class="metric-value">{{ row.quantity_on_hand }} {{ row.unit }}</span>
+              </div>
+              <div class="metric-line" v-if="row.reorder_point !== null && row.reorder_point !== undefined">
+                <span class="metric-label">{{ labels.reorderPoint }}</span>
+                <span class="metric-value">{{ row.reorder_point }}</span>
+              </div>
+              <div class="metric-line" v-if="row.reorder_quantity !== null && row.reorder_quantity !== undefined">
+                <span class="metric-label">{{ labels.reorderQty }}</span>
+                <span class="metric-value">{{ row.reorder_quantity }}</span>
+              </div>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column :label="labels.stockQty" width="120" align="right">
+        <el-table-column :label="labels.costInfo" min-width="160">
           <template #default="{ row }">
-            <span>{{ row.quantity_on_hand }} {{ row.unit }}</span>
+            <div class="metric-block">
+              <div class="metric-line">
+                <span class="metric-label">{{ labels.unitCost }}</span>
+                <span class="metric-value">{{ row.currency }} {{ Number(row.unit_cost).toFixed(4) }}</span>
+              </div>
+              <div class="metric-line">
+                <span class="metric-label">{{ labels.currency }}</span>
+                <span class="metric-value">{{ row.currency }}</span>
+              </div>
+              <div class="metric-line">
+                <span class="metric-label">{{ labels.unit }}</span>
+                <span class="metric-value">{{ row.unit }}</span>
+              </div>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="supplier_name" :label="labels.supplier" width="120" show-overflow-tooltip />
+        <el-table-column :label="labels.supplierInfo" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }">
+            <div class="item-main">
+              <div class="item-main__name">{{ row.supplier_name || '-' }}</div>
+              <div v-if="row.supplier_contact" class="item-main__spec">{{ row.supplier_contact }}</div>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column :label="labels.status" width="80">
           <template #default="{ row }">
-            <el-tag :type="getPackagingStatusColor(row.status)">
-              {{ getPackagingStatusLabel(row.status) }}
-            </el-tag>
+            <div class="status-block">
+              <el-tag :type="getPackagingStatusColor(row.status)">
+                {{ getPackagingStatusLabel(row.status) }}
+              </el-tag>
+              <el-tag v-if="row.deletable === false" type="warning" effect="plain" size="small">不可删除</el-tag>
+              <div v-if="row.reference_count" class="status-block__remark">{{ row.reference_count }} 处引用</div>
+            </div>
           </template>
         </el-table-column>
         <el-table-column :label="labels.actions" width="220" fixed="right">
@@ -88,7 +145,11 @@
             <el-button link type="warning" @click="handleStockOperation(row)">{{ labels.stockOp }}</el-button>
             <el-button link type="primary" @click="handleEdit(row)">{{ labels.edit }}</el-button>
             <el-button link type="success" @click="viewLedger(row)">{{ labels.ledger }}</el-button>
-            <el-button link type="danger" @click="handleDelete(row)">{{ labels.delete }}</el-button>
+            <el-tooltip :disabled="row.deletable !== false" :content="row.delete_block_reason || labels.notDeletable">
+              <div class="inline-action">
+                <el-button link type="danger" :disabled="row.deletable === false" @click="handleDelete(row)">{{ labels.delete }}</el-button>
+              </div>
+            </el-tooltip>
           </template>
         </el-table-column>
       </el-table>
@@ -111,117 +172,138 @@
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
-      width="700px"
+      width="860px"
       @close="handleDialogClose"
     >
-      <el-form :model="formData" :rules="formRules" ref="formRef" label-width="120px">
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item :label="labels.itemCode" prop="item_code">
-              <el-input v-model="formData.item_code" :placeholder="labels.itemCodePlaceholder" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="labels.itemName" prop="item_name">
-              <el-input v-model="formData.item_name" :placeholder="labels.itemNamePlaceholder" />
-            </el-form-item>
-          </el-col>
-        </el-row>
+      <div class="dialog-layout">
+        <el-form :model="formData" :rules="formRules" ref="formRef" label-width="120px" class="dialog-form">
+          <el-row :gutter="16">
+            <el-col :span="12">
+              <el-form-item :label="labels.itemCode" prop="item_code">
+                <el-input v-model="formData.item_code" :placeholder="labels.itemCodePlaceholder" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item :label="labels.itemName" prop="item_name">
+                <el-input v-model="formData.item_name" :placeholder="labels.itemNamePlaceholder" />
+              </el-form-item>
+            </el-col>
+          </el-row>
 
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item :label="labels.category" prop="category">
-              <el-select v-model="formData.category" :placeholder="labels.categoryPlaceholder" style="width: 100%">
-                <el-option
-                  v-for="item in categoryOptions"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
+          <el-row :gutter="16">
+            <el-col :span="12">
+              <el-form-item :label="labels.category" prop="category">
+                <el-select v-model="formData.category" :placeholder="labels.categoryPlaceholder" style="width: 100%">
+                  <el-option
+                    v-for="item in categoryOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item :label="labels.specification">
+                <el-input v-model="formData.specification" :placeholder="labels.specPlaceholder" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-row :gutter="16">
+            <el-col :span="8">
+              <el-form-item :label="labels.unitCost" prop="unit_cost">
+                <el-input-number
+                  v-model="formData.unit_cost"
+                  :precision="4"
+                  :step="0.01"
+                  :min="0"
+                  style="width: 100%"
                 />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="labels.specification">
-              <el-input v-model="formData.specification" :placeholder="labels.specPlaceholder" />
-            </el-form-item>
-          </el-col>
-        </el-row>
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item :label="labels.currency">
+                <el-input v-model="formData.currency" placeholder="CNY" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item :label="labels.unit">
+                <el-select v-model="formData.unit" :placeholder="labels.unitPlaceholder" style="width: 100%">
+                  <el-option
+                    v-for="item in unitOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
 
-        <el-row :gutter="16">
-          <el-col :span="8">
-            <el-form-item :label="labels.unitCost" prop="unit_cost">
-              <el-input-number
-                v-model="formData.unit_cost"
-                :precision="4"
-                :step="0.01"
-                :min="0"
-                style="width: 100%"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item :label="labels.currency">
-              <el-input v-model="formData.currency" placeholder="CNY" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item :label="labels.unit">
-              <el-select v-model="formData.unit" :placeholder="labels.unitPlaceholder" style="width: 100%">
-                <el-option
-                  v-for="item in unitOptions"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
+          <el-row :gutter="16">
+            <el-col :span="12">
+              <el-form-item :label="labels.supplier">
+                <SupplierSelector
+                  v-model="selectedSupplierId"
+                  type="PACKAGING"
+                  :placeholder="labels.supplierPlaceholder"
+                  @change="handleSupplierChange"
                 />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
+              </el-form-item>
+            </el-col>
+          </el-row>
 
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item :label="labels.supplier">
-              <el-select
-                v-model="formData.supplier_id"
-                :placeholder="labels.supplierPlaceholder"
-                filterable
-                clearable
-                style="width: 100%"
-                @change="handleSupplierChange"
+          <el-form-item :label="labels.status">
+            <el-radio-group v-model="formData.status">
+              <el-radio
+                v-for="item in statusOptions"
+                :key="item.value"
+                :label="item.value"
               >
-                <el-option
-                  v-for="supplier in supplierList"
-                  :key="supplier.id"
-                  :label="supplier.name"
-                  :value="supplier.id"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
+                {{ item.label }}
+              </el-radio>
+            </el-radio-group>
+          </el-form-item>
 
-        <el-form-item :label="labels.status">
-          <el-radio-group v-model="formData.status">
-            <el-radio
-              v-for="item in statusOptions"
-              :key="item.value"
-              :label="item.value"
-            >
-              {{ item.label }}
-            </el-radio>
-          </el-radio-group>
-        </el-form-item>
+          <el-form-item :label="labels.notes">
+            <el-input
+              v-model="formData.notes"
+              type="textarea"
+              :rows="3"
+              :placeholder="labels.notesPlaceholder"
+            />
+          </el-form-item>
+        </el-form>
 
-        <el-form-item :label="labels.notes">
-          <el-input
-            v-model="formData.notes"
-            type="textarea"
-            :rows="3"
-            :placeholder="labels.notesPlaceholder"
-          />
-        </el-form-item>
-      </el-form>
+        <div class="dialog-summary">
+          <div class="detail-summary-title">{{ labels.dialogSummary }}</div>
+          <div class="detail-summary-line">
+            <span>{{ labels.category }}</span>
+            <span>{{ currentCategoryLabel }}</span>
+          </div>
+          <div class="detail-summary-line">
+            <span>{{ labels.unitCost }}</span>
+            <span>{{ formData.currency || '-' }} {{ Number(formData.unit_cost || 0).toFixed(4) }}</span>
+          </div>
+          <div class="detail-summary-line">
+            <span>{{ labels.unit }}</span>
+            <span>{{ formData.unit || '-' }}</span>
+          </div>
+          <div class="detail-summary-line">
+            <span>{{ labels.supplier }}</span>
+            <span>{{ currentSupplierName }}</span>
+          </div>
+          <div class="detail-summary-line">
+            <span>{{ labels.deleteStatus }}</span>
+            <span>{{ currentDeleteStatus }}</span>
+          </div>
+          <div class="detail-summary-line detail-summary-line--total">
+            <span>{{ labels.status }}</span>
+            <span>{{ currentStatusLabel }}</span>
+          </div>
+        </div>
+      </div>
 
       <template #footer>
         <el-button @click="dialogVisible = false">{{ labels.cancel }}</el-button>
@@ -237,9 +319,9 @@
       @close="handleStockDialogClose"
     >
       <div v-if="stockOperatingItem" class="stock-info">
-        <p><strong>{{ labels.itemCode }}:</strong> {{ stockOperatingItem.item_code }}</p>
-        <p><strong>{{ labels.itemName }}:</strong> {{ stockOperatingItem.item_name }}</p>
-        <p><strong>{{ labels.currentStock }}:</strong> {{ stockOperatingItem.quantity_on_hand }} {{ stockOperatingItem.unit }}</p>
+        <div class="stock-info__name">{{ stockOperatingItem.item_name }}</div>
+        <div class="stock-info__code">{{ stockOperatingItem.item_code }}</div>
+        <div class="stock-info__meta">{{ labels.currentStock }}：{{ stockOperatingItem.quantity_on_hand }} {{ stockOperatingItem.unit }}</div>
       </div>
 
       <el-form :model="stockForm" ref="stockFormRef" label-width="100px">
@@ -290,6 +372,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { useRouter } from 'vue-router'
+import { buildCodeValidator } from '@/modules/common/utils/code'
 import {
   getPackagingItemList,
   createPackagingItem,
@@ -298,8 +381,8 @@ import {
   createInboundLedger,
   createOutboundLedger
 } from '../api'
-import { getSupplierList } from '@/modules/supplier/api'
 import type { Supplier } from '@/modules/supplier/types'
+import SupplierSelector from '@/modules/supplier/components/SupplierSelector.vue'
 import {
   type PackagingItem,
   type CreatePackagingItemRequest,
@@ -323,6 +406,8 @@ const labels = computed(() => {
       all: 'All',
       keyword: 'Keyword',
       keywordPlaceholder: 'Search code or name',
+      searchTitle: 'Search materials',
+      searchDescription: 'Search quickly by material code, name, category and status.',
       search: 'Search',
       reset: 'Reset',
       itemCode: 'Item Code',
@@ -333,9 +418,15 @@ const labels = computed(() => {
       reorderPoint: 'Reorder Point',
       supplier: 'Supplier',
       actions: 'Actions',
+      itemInfo: 'Item Info',
+      stockInfo: 'Stock',
+      costInfo: 'Cost',
+      supplierInfo: 'Supplier',
       edit: 'Edit',
       ledger: 'Ledger',
       delete: 'Delete',
+      deleteStatus: 'Delete Status',
+      notDeletable: 'Not Deletable',
       stockOp: 'Stock',
       stockOpTitle: 'Stock Operation',
       currentStock: 'Current Stock',
@@ -368,6 +459,10 @@ const labels = computed(() => {
       deleted: 'Deleted',
       updated: 'Updated',
       created: 'Created',
+      itemCount: 'Items',
+      activeCount: 'Active',
+      totalOnHand: 'Total On Hand',
+      dialogSummary: 'Summary',
       loadFail: 'Failed to load list',
       deleteFail: 'Delete failed',
       submitFail: 'Operation failed',
@@ -386,6 +481,8 @@ const labels = computed(() => {
     all: '全部',
     keyword: '关键词',
     keywordPlaceholder: '搜索物料编码或名称',
+    searchTitle: '搜索包材物料',
+    searchDescription: '按物料编码、名称、类别和状态快速定位包材。',
     search: '查询',
     reset: '重置',
     itemCode: '物料编码',
@@ -396,9 +493,15 @@ const labels = computed(() => {
     reorderPoint: '补货点',
     supplier: '供应商',
     actions: '操作',
+    itemInfo: '物料信息',
+    stockInfo: '库存情况',
+    costInfo: '成本信息',
+    supplierInfo: '供应商',
     edit: '编辑',
     ledger: '流水',
     delete: '删除',
+    deleteStatus: '删除状态',
+    notDeletable: '不可删除',
     stockOp: '库存',
     stockOpTitle: '库存操作',
     currentStock: '当前库存',
@@ -431,6 +534,10 @@ const labels = computed(() => {
     deleted: '删除成功',
     updated: '更新成功',
     created: '创建成功',
+    itemCount: '物料数',
+    activeCount: '启用数',
+    totalOnHand: '总库存',
+    dialogSummary: '本次摘要',
     loadFail: '获取列表失败',
     deleteFail: '删除失败',
     submitFail: '操作失败',
@@ -515,7 +622,8 @@ const getPackagingStatusColor = (status: PackagingStatus) => {
 const loading = ref(false)
 const itemList = ref<PackagingItem[]>([])
 const total = ref(0)
-const supplierList = ref<Supplier[]>([])
+const selectedSupplierId = ref<number | null>(null)
+const selectedSupplierName = ref('')
 
 // 查询参数
 const queryParams = reactive<PackagingItemQueryParams>({
@@ -529,17 +637,18 @@ const dialogTitle = ref('')
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
 const editingId = ref<number | null>(null)
+const currentEditItem = ref<PackagingItem | null>(null)
 
 // 表单数据
-const formData = reactive<CreatePackagingItemRequest & { supplier_id?: number }>({
+const formData = reactive<CreatePackagingItemRequest>({
   item_code: '',
   item_name: '',
   category: 'BOX' as any,
   unit_cost: 0,
   currency: 'CNY',
   unit: 'PCS',
-  status: PackagingStatus.ACTIVE,
-  supplier_id: undefined
+  supplier_id: undefined,
+  status: PackagingStatus.ACTIVE
 })
 
 // 库存操作对话框
@@ -555,12 +664,34 @@ const stockForm = reactive({
 })
 
 // 表单验证规则
+const validatePackagingItemCode = buildCodeValidator('物料编码只允许字母、数字、中划线、下划线')
+
 const formRules = computed<FormRules>(() => ({
-  item_code: [{ required: true, message: labels.value.codeRequired, trigger: 'blur' }],
+  item_code: [
+    { required: true, message: labels.value.codeRequired, trigger: 'blur' },
+    { validator: validatePackagingItemCode, trigger: 'blur' }
+  ],
   item_name: [{ required: true, message: labels.value.nameRequired, trigger: 'blur' }],
   category: [{ required: true, message: labels.value.categoryRequired, trigger: 'change' }],
   unit_cost: [{ required: true, message: labels.value.unitCostRequired, trigger: 'blur' }]
 }))
+
+const currentCategoryLabel = computed(() => {
+  return getPackagingCategoryLabel(formData.category)
+})
+
+const currentStatusLabel = computed(() => {
+  return getPackagingStatusLabel(formData.status)
+})
+
+const currentSupplierName = computed(() => selectedSupplierName.value || '-')
+const currentDeleteStatus = computed(() => {
+  if (!currentEditItem.value) return '-'
+  if (currentEditItem.value.deletable === false) {
+    return currentEditItem.value.delete_block_reason || labels.value.notDeletable
+  }
+  return localeStore.isEnglish ? 'Deletable' : '可删除'
+})
 
 // 方法
 const fetchList = async () => {
@@ -595,15 +726,15 @@ const handleReset = () => {
 const handleCreate = () => {
   dialogTitle.value = labels.value.createTitle
   editingId.value = null
+  currentEditItem.value = null
   resetForm()
   dialogVisible.value = true
 }
 
-const handleEdit = (row: PackagingItem) => {
+const handleEdit = async (row: PackagingItem) => {
   dialogTitle.value = labels.value.editTitle
   editingId.value = row.id
-  // 根据supplier_name找到对应的supplier_id
-  const supplier = supplierList.value.find(s => s.name === row.supplier_name)
+  currentEditItem.value = row
   Object.assign(formData, {
     item_code: row.item_code,
     item_name: row.item_name,
@@ -612,15 +743,20 @@ const handleEdit = (row: PackagingItem) => {
     unit_cost: row.unit_cost,
     currency: row.currency,
     unit: row.unit,
-    supplier_id: supplier?.id,
-    supplier_name: row.supplier_name,
+    supplier_id: row.supplier_id || undefined,
     status: row.status,
     notes: row.notes
   })
+  selectedSupplierId.value = row.supplier_id || null
+  selectedSupplierName.value = row.supplier_name || ''
   dialogVisible.value = true
 }
 
 const handleDelete = async (row: PackagingItem) => {
+  if (row.deletable === false) {
+    ElMessage.warning(row.delete_block_reason || '已被业务数据引用，不可删除')
+    return
+  }
   try {
     await ElMessageBox.confirm(labels.value.deleteConfirm.replace('{name}', row.item_name), labels.value.confirmTitle, {
       confirmButtonText: labels.value.confirmText,
@@ -665,6 +801,7 @@ const handleSubmit = async () => {
 }
 
 const handleDialogClose = () => {
+  currentEditItem.value = null
   formRef.value?.resetFields()
   resetForm()
 }
@@ -679,29 +816,23 @@ const resetForm = () => {
     currency: 'CNY',
     unit: 'PCS',
     supplier_id: undefined,
-    supplier_name: undefined,
     status: PackagingStatus.ACTIVE,
     notes: undefined
   })
-}
-
-// 加载供应商列表
-const loadSuppliers = async () => {
-  try {
-    const res = await getSupplierList({ page: 1, page_size: 1000 })
-    supplierList.value = res.data?.data || res.data || []
-  } catch (error) {
-    console.error('Failed to load suppliers:', error)
-  }
+  selectedSupplierId.value = null
+  selectedSupplierName.value = ''
 }
 
 // 供应商选择变化
-const handleSupplierChange = (supplierId: number | undefined) => {
-  if (supplierId) {
-    const supplier = supplierList.value.find(s => s.id === supplierId)
-    formData.supplier_name = supplier?.name
+const handleSupplierChange = (supplier: Supplier | null) => {
+  if (supplier) {
+    selectedSupplierId.value = supplier.id
+    selectedSupplierName.value = supplier.supplier_name
+    formData.supplier_id = supplier.id
   } else {
-    formData.supplier_name = undefined
+    selectedSupplierId.value = null
+    selectedSupplierName.value = ''
+    formData.supplier_id = undefined
   }
 }
 
@@ -726,7 +857,7 @@ const handleStockDialogClose = () => {
 const handleStockSubmit = async () => {
   if (!stockOperatingItem.value) return
   if (stockForm.quantity <= 0) {
-    ElMessage.warning(labels.value.quantity + ' must be greater than 0')
+    ElMessage.warning(localeStore.isEnglish ? 'Quantity must be greater than 0' : '数量必须大于 0')
     return
   }
 
@@ -742,10 +873,10 @@ const handleStockSubmit = async () => {
 
     if (stockForm.type === 'IN') {
       await createInboundLedger(ledgerData)
-      ElMessage.success(labels.value.stockIn + '成功')
+      ElMessage.success(localeStore.isEnglish ? 'Stock-in completed' : '入库成功')
     } else {
       await createOutboundLedger(ledgerData)
-      ElMessage.success(labels.value.stockOut + '成功')
+      ElMessage.success(localeStore.isEnglish ? 'Stock-out completed' : '出库成功')
     }
 
     stockDialogVisible.value = false
@@ -772,41 +903,10 @@ const viewLowStock = () => {
 
 onMounted(() => {
   dialogTitle.value = labels.value.createTitle
-  loadSuppliers()
   fetchList()
 })
 </script>
 
-<style scoped>
-.packaging-item-container {
-  padding: 20px;
-}
+<style scoped src="@/modules/packaging/styles/packaging-item-list.css"></style>
 
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
 
-.filter-form {
-  margin-bottom: 16px;
-}
-
-.pagination {
-  margin-top: 16px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.stock-info {
-  background: #f5f7fa;
-  padding: 12px 16px;
-  border-radius: 4px;
-  margin-bottom: 20px;
-}
-
-.stock-info p {
-  margin: 4px 0;
-  color: #606266;
-}
-</style>

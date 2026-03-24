@@ -8,15 +8,17 @@
         </div>
       </template>
 
-      <!-- 筛选区域 -->
-      <el-form :inline="true" :model="queryParams" class="filter-form">
-        <el-form-item :label="labels.skuId">
-          <el-input-number
-            v-model="queryParams.sku_id"
-            :controls="false"
-            :placeholder="labels.skuIdPlaceholder"
-            style="width: 140px"
-            clearable
+      <div class="search-toolbar">
+        <div class="search-toolbar__intro">
+          <div class="search-toolbar__title">{{ labels.searchTitle }}</div>
+          <div class="search-toolbar__meta">{{ labels.searchDescription }}</div>
+        </div>
+        <el-form :inline="true" :model="queryParams" class="filter-form">
+          <el-form-item :label="labels.product">
+          <ProductSelector
+            v-model="queryParams.product_id"
+            :placeholder="labels.productPlaceholder"
+            style="width: 320px"
           />
         </el-form-item>
 
@@ -48,16 +50,31 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item>
-          <el-button type="primary" @click="handleQuery">{{ labels.search }}</el-button>
-          <el-button @click="handleReset">{{ labels.reset }}</el-button>
-        </el-form-item>
-      </el-form>
+          <el-form-item class="filter-form__actions">
+            <el-button type="primary" @click="handleQuery">{{ labels.search }}</el-button>
+            <el-button @click="handleReset">{{ labels.reset }}</el-button>
+          </el-form-item>
+        </el-form>
+      </div>
 
       <!-- 快照列表 -->
       <el-table v-loading="loading" :data="snapshotList" border stripe>
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="sku_id" :label="labels.skuId" width="100" />
+        <el-table-column :label="labels.product" min-width="260">
+          <template #default="{ row }">
+            <div class="product-cell">
+              <el-image
+                v-if="row.product_image_url"
+                :src="row.product_image_url"
+                fit="cover"
+                style="width: 46px; height: 46px; border-radius: 6px"
+              />
+              <div class="product-cell__content">
+                <div class="product-cell__sku">{{ row.seller_sku || row.product_id }}</div>
+                <div class="product-cell__title">{{ row.product_title || '-' }}</div>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column :label="labels.costType" width="120">
           <template #default="{ row }">
             <el-tag>{{ getCostTypeLabel(row.cost_type) }}</el-tag>
@@ -119,11 +136,10 @@
       @close="handleDialogClose"
     >
       <el-form :model="formData" :rules="formRules" ref="formRef" label-width="100px">
-        <el-form-item :label="labels.skuId" prop="sku_id">
-          <el-input-number
-            v-model="formData.sku_id"
-            :controls="false"
-            :placeholder="labels.skuIdInput"
+        <el-form-item :label="labels.product" prop="product_id">
+          <ProductSelector
+            v-model="formData.product_id"
+            :placeholder="labels.productInput"
             style="width: 100%"
             :disabled="!!editingId"
           />
@@ -156,7 +172,7 @@
         </el-form-item>
 
         <el-form-item :label="labels.currency" prop="currency">
-          <el-input v-model="formData.currency" placeholder="CNY" />
+          <el-input v-model="formData.currency" :placeholder="baseCurrency" />
         </el-form-item>
 
         <el-form-item :label="labels.effectiveFrom" prop="effective_from">
@@ -211,6 +227,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { useFinanceBaseCurrency } from '../composables/useFinanceBaseCurrency'
 import {
   getCostingSnapshotList,
   createCostingSnapshot,
@@ -223,18 +240,20 @@ import {
   type CostingSnapshotQueryParams,
   CostType
 } from '../types'
+import ProductSelector from '@/modules/product/components/ProductSelector.vue'
 import { useLocaleStore } from '@/modules/common/stores/localeStore'
 
 const localeStore = useLocaleStore()
+const { baseCurrency, loadBaseCurrency } = useFinanceBaseCurrency()
 
 const labels = computed(() => {
   if (localeStore.isEnglish) {
     return {
       title: 'Costing Snapshots',
       create: 'New Snapshot',
-      skuId: 'SKU ID',
-      skuIdPlaceholder: 'SKU ID',
-      skuIdInput: 'Enter SKU ID',
+      product: 'Product',
+      productPlaceholder: 'Select product',
+      productInput: 'Select product',
       costType: 'Cost Type',
       costTypePlaceholder: 'Select cost type',
       status: 'Status',
@@ -258,7 +277,7 @@ const labels = computed(() => {
       effectiveFromPlaceholder: 'Select effective date',
       effectiveTo: 'Effective To',
       effectiveToPlaceholder: 'Leave empty for current',
-      warning: 'Note: Creating a current snapshot will expire other snapshots for the same SKU and cost type.',
+      warning: 'Note: Creating a current snapshot will expire other snapshots for the same product and cost type.',
       cancel: 'Cancel',
       confirm: 'Confirm',
       createdTitle: 'New Snapshot',
@@ -273,7 +292,7 @@ const labels = computed(() => {
       loadFail: 'Failed to load snapshots',
       deleteFail: 'Delete failed',
       submitFail: 'Operation failed',
-      skuRequired: 'Please enter SKU ID',
+      productRequired: 'Please select product',
       costTypeRequired: 'Please select cost type',
       unitCostRequired: 'Please enter unit cost',
       currencyRequired: 'Please enter currency',
@@ -283,9 +302,9 @@ const labels = computed(() => {
   return {
     title: '成本快照管理',
     create: '新增快照',
-    skuId: 'SKU ID',
-    skuIdPlaceholder: 'SKU ID',
-    skuIdInput: '输入 SKU ID',
+    product: '产品',
+    productPlaceholder: '选择产品',
+    productInput: '选择产品',
     costType: '成本类型',
     costTypePlaceholder: '请选择成本类型',
     status: '状态',
@@ -309,7 +328,7 @@ const labels = computed(() => {
     effectiveFromPlaceholder: '选择生效日期',
     effectiveTo: '失效日期',
     effectiveToPlaceholder: '留空表示当前有效',
-    warning: '注意：创建为当前有效成本时，同 SKU + 同类型的其他成本快照将自动失效',
+    warning: '注意：创建为当前有效成本时，同产品 + 同类型的其他成本快照将自动失效',
     cancel: '取消',
     confirm: '确定',
     createdTitle: '新增快照',
@@ -324,7 +343,7 @@ const labels = computed(() => {
     loadFail: '获取快照列表失败',
     deleteFail: '删除失败',
     submitFail: '操作失败',
-    skuRequired: '请输入 SKU ID',
+    productRequired: '请选择产品',
     costTypeRequired: '请选择成本类型',
     unitCostRequired: '请输入单位成本',
     currencyRequired: '请输入货币',
@@ -372,16 +391,16 @@ const editingId = ref<number | null>(null)
 
 // 表单数据
 const formData = reactive<CreateCostingSnapshotRequest>({
-  sku_id: 0,
+  product_id: 0,
   cost_type: CostType.PURCHASE,
   unit_cost: 0,
-  currency: 'CNY',
+  currency: '',
   effective_from: new Date().toISOString().slice(0, 19).replace('T', ' ')
 })
 
 // 表单验证规则
 const formRules = computed<FormRules>(() => ({
-  sku_id: [{ required: true, message: labels.value.skuRequired, trigger: 'blur' }],
+  product_id: [{ required: true, message: labels.value.productRequired, trigger: 'blur' }],
   cost_type: [{ required: true, message: labels.value.costTypeRequired, trigger: 'change' }],
   unit_cost: [{ required: true, message: labels.value.unitCostRequired, trigger: 'blur' }],
   currency: [{ required: true, message: labels.value.currencyRequired, trigger: 'blur' }],
@@ -393,7 +412,7 @@ const fetchList = async () => {
   loading.value = true
   try {
     const res = await getCostingSnapshotList(queryParams)
-    snapshotList.value = res.data.items
+    snapshotList.value = res.data.data
     total.value = res.data.total
   } catch (error: any) {
     ElMessage.error(`${labels.value.loadFail}: ${error.message}`)
@@ -411,7 +430,7 @@ const handleReset = () => {
   Object.assign(queryParams, {
     page: 1,
     page_size: 20,
-    sku_id: undefined,
+    product_id: undefined,
     cost_type: undefined,
     is_current: undefined
   })
@@ -429,7 +448,7 @@ const handleEdit = (row: CostingSnapshot) => {
   dialogTitle.value = labels.value.editTitle
   editingId.value = row.id
   Object.assign(formData, {
-    sku_id: row.sku_id,
+    product_id: row.product_id,
     cost_type: row.cost_type,
     unit_cost: row.unit_cost,
     currency: row.currency,
@@ -491,10 +510,10 @@ const handleDialogClose = () => {
 
 const resetForm = () => {
   Object.assign(formData, {
-    sku_id: 0,
+    product_id: 0,
     cost_type: CostType.PURCHASE,
     unit_cost: 0,
-    currency: 'CNY',
+    currency: baseCurrency.value,
     effective_from: new Date().toISOString().slice(0, 19).replace('T', ' '),
     effective_to: undefined,
     notes: undefined
@@ -511,6 +530,11 @@ const getCostTypeLabel = (type: CostType) => {
 
 onMounted(() => {
   dialogTitle.value = labels.value.createdTitle
+  loadBaseCurrency().then(() => {
+    if (!formData.currency) {
+      formData.currency = baseCurrency.value
+    }
+  })
   fetchList()
 })
 </script>
@@ -528,6 +552,31 @@ onMounted(() => {
 
 .filter-form {
   margin-bottom: 16px;
+}
+
+.product-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.product-cell__content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.product-cell__sku {
+  color: var(--el-text-color-primary);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.product-cell__title {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .pagination {

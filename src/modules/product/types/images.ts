@@ -1,0 +1,1 @@
+export type ProductImageUrl = string

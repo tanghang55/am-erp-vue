@@ -3,14 +3,14 @@ import {
   groupItemsBySupplier,
   buildCreatePayloads
 } from '@/modules/procurement/utils/purchaseOrderGrouping'
-import type { DraftItem } from '@/modules/procurement/utils/skuSelection'
+import type { DraftItem } from '@/modules/procurement/utils/productSelection'
 
 describe('purchaseOrderGrouping', () => {
   it('groups items by supplier id', () => {
     const items: DraftItem[] = [
-      { sku_id: 1, qty_ordered: 1, unit_cost: 2, supplier_id: 10 },
-      { sku_id: 2, qty_ordered: 2, unit_cost: 3, supplier_id: 10 },
-      { sku_id: 3, qty_ordered: 1, unit_cost: 1, supplier_id: 20 }
+      { product_id: 1, qty_ordered: 1, unit_cost: 2, supplier_id: 10 },
+      { product_id: 2, qty_ordered: 2, unit_cost: 3, supplier_id: 10 },
+      { product_id: 3, qty_ordered: 1, unit_cost: 1, supplier_id: 20 }
     ]
 
     const groups = groupItemsBySupplier(items)
@@ -22,21 +22,21 @@ describe('purchaseOrderGrouping', () => {
 
   it('tracks items missing supplier', () => {
     const items: DraftItem[] = [
-      { sku_id: 1, qty_ordered: 1, unit_cost: 2, supplier_id: null },
-      { sku_id: 2, qty_ordered: 1, unit_cost: 3, supplier_id: 10 }
+      { product_id: 1, qty_ordered: 1, unit_cost: 2, supplier_id: null },
+      { product_id: 2, qty_ordered: 1, unit_cost: 3, supplier_id: 10 }
     ]
 
     const groups = groupItemsBySupplier(items)
 
     expect(groups.missing).toHaveLength(1)
-    expect(groups.missing[0].sku_id).toBe(1)
+    expect(groups.missing[0].product_id).toBe(1)
   })
 
   it('builds create payloads per supplier', () => {
     const items: DraftItem[] = [
-      { sku_id: 1, qty_ordered: 1, unit_cost: 2, supplier_id: 10 },
-      { sku_id: 2, qty_ordered: 2, unit_cost: 3, supplier_id: 10 },
-      { sku_id: 3, qty_ordered: 1, unit_cost: 1, supplier_id: 20 }
+      { product_id: 1, qty_ordered: 1, unit_cost: 2, supplier_id: 10 },
+      { product_id: 2, qty_ordered: 2, unit_cost: 3, supplier_id: 10 },
+      { product_id: 3, qty_ordered: 1, unit_cost: 1, supplier_id: 20 }
     ]
 
     const result = buildCreatePayloads(
@@ -54,14 +54,14 @@ describe('purchaseOrderGrouping', () => {
 
   it('returns missing payload items when supplier is empty', () => {
     const items: DraftItem[] = [
-      { sku_id: 1, qty_ordered: 1, unit_cost: 2, supplier_id: null },
-      { sku_id: 2, qty_ordered: 1, unit_cost: 3, supplier_id: 10 }
+      { product_id: 1, qty_ordered: 1, unit_cost: 2, supplier_id: null },
+      { product_id: 2, qty_ordered: 1, unit_cost: 3, supplier_id: 10 }
     ]
 
     const result = buildCreatePayloads({ currency: 'USD' }, items)
 
     expect(result.payloads).toHaveLength(1)
     expect(result.missing).toHaveLength(1)
-    expect(result.missing[0].sku_id).toBe(1)
+    expect(result.missing[0].product_id).toBe(1)
   })
 })

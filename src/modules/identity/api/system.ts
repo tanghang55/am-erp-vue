@@ -1,8 +1,15 @@
 import request from '@/utils/request'
-import type { User, Role, Permission, MenuItem } from '../types'
+import type {
+  User,
+  Role,
+  Permission,
+  MenuItem,
+  IntegrationProviderSummary,
+  IntegrationAuthorization,
+  IntegrationSKUMapping,
+  IntegrationSKUMappingStatus
+} from '../types'
 import type { ApiResponse, PaginatedResponse } from '@/modules/common/types'
-
-// ==================== 用户管理接口 ====================
 
 export interface UserListParams {
   page?: number
@@ -11,75 +18,75 @@ export interface UserListParams {
   keyword?: string
 }
 
-/**
- * 获取用户列表
- */
+export interface UserDetailResponse {
+  user: User
+  roles: Role[]
+  permissions: Permission[]
+}
+
+export interface CreateUserPayload {
+  username: string
+  password: string
+  real_name?: string
+  email?: string
+  phone?: string
+  status?: 'ACTIVE' | 'DISABLED'
+}
+
+export interface UpdateUserPayload {
+  password?: string
+  real_name?: string
+  email?: string
+  phone?: string
+  status?: 'ACTIVE' | 'DISABLED'
+}
+
 export function getUserList(params: UserListParams) {
   return request<ApiResponse<PaginatedResponse<User>>>({
     url: '/api/v1/identity/users',
     method: 'get',
     params
-  }).then((res) => mapPaginatedUsers(res))
+  })
 }
 
-/**
- * 获取用户详情
- */
 export function getUserDetail(id: number) {
-  return request<ApiResponse<{ user: User; roles: Role[]; permissions: Permission[] }>>({
+  return request<ApiResponse<UserDetailResponse>>({
     url: `/api/v1/identity/users/${id}`,
     method: 'get'
-  }).then((res) => mapUserDetail(res))
+  })
 }
 
-/**
- * 创建用户
- */
-export function createUser(data: Partial<User> & { password: string }) {
+export function createUser(data: CreateUserPayload) {
   return request<ApiResponse<User>>({
     url: '/api/v1/identity/users',
     method: 'post',
-    data: mapUserPayload(data)
-  }).then((res) => mapUserResponse(res))
+    data
+  })
 }
 
-/**
- * 更新用户
- */
-export function updateUser(id: number, data: Partial<User>) {
+export function updateUser(id: number, data: UpdateUserPayload) {
   return request<ApiResponse<User>>({
     url: `/api/v1/identity/users/${id}`,
     method: 'put',
-    data: mapUserPayload(data)
-  }).then((res) => mapUserResponse(res))
+    data
+  })
 }
 
-/**
- * 删除用户（禁用）
- */
 export function deleteUser(id: number) {
-  return request<ApiResponse<{ message: string }>>({
+  return request<ApiResponse<null>>({
     url: `/api/v1/identity/users/${id}`,
     method: 'delete'
   })
 }
 
-/**
- * 为用户分配角色
- */
 export function assignUserRoles(userId: number, roleIds: number[]) {
-  return request<ApiResponse<{ message: string }>>({
+  return request<ApiResponse<null>>({
     url: `/api/v1/identity/users/${userId}/roles`,
     method: 'post',
     data: { role_ids: roleIds }
   })
 }
 
-// ==================== 菜单接口 ====================
-
-/**
- * 获取菜单树
- */
 export function getMenuList() {
   return request<ApiResponse<MenuItem[]>>({
     url: '/api/v1/menus/tree',
@@ -87,11 +94,6 @@ export function getMenuList() {
   })
 }
 
-// ==================== 角色接口 ====================
-
-/**
- * 获取所有角色
- */
 export function getRoleList() {
   return request<ApiResponse<Role[]>>({
     url: '/api/v1/identity/roles',
@@ -99,11 +101,6 @@ export function getRoleList() {
   })
 }
 
-// ==================== 权限接口 ====================
-
-/**
- * 获取所有权限
- */
 export function getPermissionList() {
   return request<ApiResponse<Permission[]>>({
     url: '/api/v1/identity/permissions',
@@ -111,75 +108,120 @@ export function getPermissionList() {
   })
 }
 
-const mapUserPayload = (data: Partial<User> & { password?: string }) => {
-  const payload: Record<string, any> = { ...data }
-  if ('real_name' in payload) {
-    payload.name = payload.real_name
-    delete payload.real_name
-  }
-  return payload
+export interface IntegrationAuthorizationListParams {
+  page?: number
+  page_size?: number
+  provider_code?: string
+  status?: string
 }
 
-const mapUser = (user: any): User => ({
-  ...user,
-  real_name: user.real_name || user.name,
-  last_login_at: user.last_login_at ?? undefined,
-  last_login_ip: user.last_login_ip ?? undefined
-})
-
-const mapRole = (role: any): Role => ({
-  id: role.id,
-  name: role.code || role.name,
-  display_name: role.name || role.code,
-  description: role.description,
-  status: role.status,
-  created_at: role.created_at,
-  updated_at: role.updated_at
-})
-
-const mapPermission = (permission: any): Permission => ({
-  id: permission.id,
-  name: permission.code || permission.name,
-  display_name: permission.name || permission.code,
-  description: permission.description,
-  module: permission.module,
-  created_at: permission.created_at,
-  updated_at: permission.updated_at
-})
-
-const mapPaginatedUsers = (res: ApiResponse<PaginatedResponse<User>>) => {
-  if (res?.success && res.data?.data) {
-    res.data.data = res.data.data.map((user) => mapUser(user as any)) as any
-  }
-  return res
+export interface StartIntegrationAuthorizationPayload {
+  provider_code: string
+  account_alias?: string
 }
 
-const mapUserDetail = (res: ApiResponse<any>) => {
-  if (res?.success && res.data) {
-    const user = mapUser(res.data)
-    const roles = (res.data.roles || user.roles || []).map(mapRole)
-    const permissions = collectPermissions(res.data.roles || user.roles || [])
-    res.data = { user, roles, permissions }
-  }
-  return res
+export interface StartIntegrationAuthorizationResponse {
+  authorization_id: number
+  provider_code: string
+  authorize_url: string
+  oauth_state: string
+  expire_at: string
 }
 
-const mapUserResponse = (res: ApiResponse<User>) => {
-  if (res?.success && res.data) {
-    res.data = mapUser(res.data)
-  }
-  return res
-}
-
-const collectPermissions = (roles: any[]) => {
-  const map = new Map<number, Permission>()
-  roles.forEach((role) => {
-    ;(role.permissions || []).forEach((permission: any) => {
-      const normalized = mapPermission(permission)
-      if (!map.has(normalized.id)) {
-        map.set(normalized.id, normalized)
-      }
-    })
+export function getIntegrationProviderList() {
+  return request<ApiResponse<IntegrationProviderSummary[]>>({
+    url: '/api/v1/integrations/authorizations/providers',
+    method: 'get'
   })
-  return Array.from(map.values())
+}
+
+export function getIntegrationAuthorizationList(params: IntegrationAuthorizationListParams) {
+  return request<ApiResponse<PaginatedResponse<IntegrationAuthorization>>>({
+    url: '/api/v1/integrations/authorizations',
+    method: 'get',
+    params
+  })
+}
+
+export function startIntegrationAuthorization(data: StartIntegrationAuthorizationPayload) {
+  return request<ApiResponse<StartIntegrationAuthorizationResponse>>({
+    url: '/api/v1/integrations/authorizations/start',
+    method: 'post',
+    data
+  })
+}
+
+export function refreshIntegrationAuthorization(id: number) {
+  return request<ApiResponse<IntegrationAuthorization>>({
+    url: `/api/v1/integrations/authorizations/${id}/refresh`,
+    method: 'post'
+  })
+}
+
+export interface IntegrationSKUMappingListParams {
+  page?: number
+  page_size?: number
+  provider_code?: string
+  marketplace?: string
+  status?: IntegrationSKUMappingStatus
+  keyword?: string
+  product_id?: number
+}
+
+export interface CreateIntegrationSKUMappingPayload {
+  provider_code: string
+  marketplace: string
+  seller_sku: string
+  product_id: number
+  status?: IntegrationSKUMappingStatus
+  remark?: string
+}
+
+export interface UpdateIntegrationSKUMappingPayload {
+  product_id?: number
+  status?: IntegrationSKUMappingStatus
+  remark?: string
+}
+
+export interface ProductOption {
+  id: number
+  seller_sku: string
+  title: string
+  marketplace: string
+}
+
+export function getIntegrationSKUMappingList(params: IntegrationSKUMappingListParams) {
+  return request<ApiResponse<PaginatedResponse<IntegrationSKUMapping>>>({
+    url: '/api/v1/integrations/authorizations/sku-mappings',
+    method: 'get',
+    params
+  })
+}
+
+export function createIntegrationSKUMapping(data: CreateIntegrationSKUMappingPayload) {
+  return request<ApiResponse<IntegrationSKUMapping>>({
+    url: '/api/v1/integrations/authorizations/sku-mappings',
+    method: 'post',
+    data
+  })
+}
+
+export function updateIntegrationSKUMapping(id: number, data: UpdateIntegrationSKUMappingPayload) {
+  return request<ApiResponse<IntegrationSKUMapping>>({
+    url: `/api/v1/integrations/authorizations/sku-mappings/${id}`,
+    method: 'put',
+    data
+  })
+}
+
+export function searchProductOptions(keyword: string) {
+  return request<ApiResponse<PaginatedResponse<ProductOption>>>({
+    url: '/api/v1/products',
+    method: 'get',
+    params: {
+      page: 1,
+      page_size: 20,
+      keyword
+    }
+  })
 }

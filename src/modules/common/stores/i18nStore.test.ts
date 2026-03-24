@@ -13,7 +13,7 @@ describe('i18nStore', () => {
   it('normalizes key to lowercase', () => {
     setActivePinia(createPinia())
     const store = useI18nStore()
-    store.setLabels({ 'product.list.skumanagement': 'SKU管理' })
-    expect(store.t('product.list.skuManagement')).toBe('SKU管理')
+    store.setLabels({ 'product.list.productmanagement': '产品管理' })
+    expect(store.t('product.list.productManagement')).toBe('产品管理')
   })
 })

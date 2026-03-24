@@ -18,12 +18,20 @@ export const useTabsStore = defineStore('tabs', () => {
   const homeTab: TabItem = {
     path: '/dashboard',
     name: 'dashboard',
-    title: 'Dashboard',
+    title: '仪表板',
     closable: false
   }
 
   // 初始化
   const init = () => {
+    const deprecatedTabPrefixes = [
+      '/system/settings',
+      '/system/business-config',
+      '/inventory/movements/create',
+      '/product/parents'
+    ]
+    const isDeprecatedTabPath = (path: string) => deprecatedTabPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
+
     // 尝试从localStorage恢复标签页
     const savedTabs = localStorage.getItem('erp-tabs')
     const savedActiveTab = localStorage.getItem('erp-active-tab')
@@ -31,7 +39,9 @@ export const useTabsStore = defineStore('tabs', () => {
     if (savedTabs) {
       try {
         const parsed = JSON.parse(savedTabs)
-        tabs.value = Array.isArray(parsed) ? parsed : [homeTab]
+        tabs.value = Array.isArray(parsed)
+          ? parsed.filter((tab) => !isDeprecatedTabPath(tab.path))
+          : [homeTab]
       } catch {
         tabs.value = [homeTab]
       }
@@ -44,10 +54,18 @@ export const useTabsStore = defineStore('tabs', () => {
       tabs.value.unshift(homeTab)
     } else {
       const home = tabs.value.find((t) => t.path === homeTab.path)
-      if (home) home.closable = false
+      if (home) {
+        home.closable = false
+        home.title = getTitleByName(home.name)
+      }
     }
 
-    activeTab.value = savedActiveTab || homeTab.path
+    tabs.value = tabs.value.map((tab) => ({
+      ...tab,
+      title: getTitleByName(tab.name) || tab.title
+    }))
+
+    activeTab.value = isDeprecatedTabPath(savedActiveTab || '') ? homeTab.path : (savedActiveTab || homeTab.path)
   }
 
   // 持久化
@@ -163,36 +181,63 @@ export const useTabsStore = defineStore('tabs', () => {
 
     // 根据路由name生成标题
     const name = route.name as string
-    if (!name) return 'Untitled'
+    return getTitleByName(name)
+  }
 
-    // 路由名称映射表（中英文）
+  const getTitleByName = (name?: string): string => {
+    if (!name) return '未命名'
+
     const titleMap: Record<string, { zh: string; en: string }> = {
       dashboard: { zh: '仪表板', en: 'Dashboard' },
       'system-users': { zh: '用户管理', en: 'User Management' },
+      'integration-authorizations': { zh: '平台授权', en: 'Platform Authorizations' },
       'system-audit-logs': { zh: '操作日志', en: 'Audit Logs' },
-      'system-settings': { zh: '系统设置', en: 'System Settings' },
+      'system-config-center': { zh: '配置中心', en: 'Config Center' },
+      'system-monitor': { zh: '系统监控', en: 'System Monitor' },
       'system-field-labels': { zh: '字段标签', en: 'Field Labels' },
       'system-menus': { zh: '菜单管理', en: 'Menu Management' },
       'product-skus': { zh: '产品列表', en: 'Product List' },
+      'product-config': { zh: '产品配置', en: 'Product Config' },
       'product-images': { zh: '产品图片', en: 'Product Images' },
-      'product-parents': { zh: '父体产品', en: 'Parent Products' },
+      'product-groups': { zh: '产品归组', en: 'Product Grouping' },
+      'product-groups-detail': { zh: '归组详情', en: 'Grouping Detail' },
       'product-combos': { zh: '组合产品', en: 'Product Combos' },
       'supplier-suppliers': { zh: '供应商列表', en: 'Supplier List' },
       'supplier-product-quotes': { zh: '产品报价', en: 'Product Quotes' },
       'inventory-warehouses': { zh: '仓库管理', en: 'Warehouse Management' },
       'inventory-balances': { zh: '库存余额', en: 'Inventory Balances' },
+      'inventory-lots': { zh: '库存批次', en: 'Inventory Lots' },
       'inventory-movements': { zh: '库存流水', en: 'Inventory Movements' },
-      'inventory-movements-create': { zh: '录入库存', en: 'Create Movement' },
+      'inventory-adjustments': { zh: '调整库存', en: 'Adjust Inventory' },
       'procurement-purchase-orders': { zh: '采购单', en: 'Purchase Orders' },
+      'procurement-replenishment-strategies': { zh: '采购策略', en: 'Replenishment Strategies' },
+      'procurement-replenishment-plans': { zh: '采购计划', en: 'Replenishment Plans' },
       'procurement-purchase-orders-create': { zh: '创建采购单', en: 'Create Purchase Order' },
       'procurement-purchase-orders-edit': { zh: '编辑采购单', en: 'Edit Purchase Order' },
       'procurement-purchase-orders-detail': { zh: '采购单详情', en: 'Purchase Order Detail' },
       'procurement-assembly': { zh: '打包管理', en: 'Assembly Management' },
+      'sales-orders': { zh: '销售订单', en: 'Sales Orders' },
+      'sales-order-import': { zh: '导入记录', en: 'Import History' },
+      'sales-order-detail': { zh: '销售订单详情', en: 'Sales Order Detail' },
       'shipping-shipments': { zh: '发货管理', en: 'Shipment Management' },
+      'shipping-shipments-create': { zh: '创建货件', en: 'Create Shipment' },
+      'shipping-shipments-detail': { zh: '货件详情', en: 'Shipment Detail' },
+      'shipping-package-specs': { zh: '装箱规格', en: 'Package Specs' },
+      'logistics-providers': { zh: '物流商管理', en: 'Logistics Providers' },
+      'logistics-services': { zh: '物流服务', en: 'Logistics Services' },
+      'logistics-shipping-rates': { zh: '物流报价', en: 'Shipping Rates' },
       'finance-cash-ledger': { zh: '现金流水', en: 'Cash Ledger' },
-      'finance-costing': { zh: '成本核算', en: 'Costing' },
+      'finance-cash-ledger-audit': { zh: '现金流水操作日志', en: 'Cash Ledger Audit' },
+      'finance-costing': { zh: '成本中心', en: 'Cost Center' },
+      'finance-costing-snapshots': { zh: '成本快照历史', en: 'Cost Snapshot History' },
+      'finance-profit': { zh: '财务总览', en: 'Finance Overview' },
+      'finance-order-profit': { zh: '订单利润', en: 'Order Profit' },
+      'finance-product-cost': { zh: '成本中心', en: 'Cost Center' },
+      'finance-exchange-rates': { zh: '汇率管理', en: 'Exchange Rates' },
       'packaging-items': { zh: '包材管理', en: 'Packaging Items' },
-      'packaging-ledger': { zh: '包材流水', en: 'Packaging Ledger' }
+      'packaging-ledger': { zh: '包材流水', en: 'Packaging Ledger' },
+      'packaging-procurement-plans': { zh: '包材采购计划', en: 'Packaging Procurement Plans' },
+      'packaging-procurement-orders': { zh: '包材采购单', en: 'Packaging Purchase Orders' }
     }
 
     const locale = localStorage.getItem('locale') || 'zh-CN'

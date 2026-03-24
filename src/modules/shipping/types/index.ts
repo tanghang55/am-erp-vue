@@ -1,7 +1,7 @@
 // Shipping module type definitions
 
 import type { Warehouse } from '@/modules/inventory/types'
-import type { Sku } from '@/modules/product/types'
+import type { ProductSummary } from '@/modules/product/types'
 
 // ============= Package Spec (装箱规格) =============
 
@@ -15,6 +15,9 @@ export interface PackageSpec {
   quantity_per_box: number  // 每箱产品数量
   remark?: string
   status: PackageSpecStatus
+  reference_count?: number
+  deletable?: boolean
+  delete_block_reason?: string
   created_by?: number
   updated_by?: number
   gmt_create: string
@@ -100,9 +103,17 @@ export interface Shipment {
   confirmed_by?: number
   shipped_by?: number
   delivered_by?: number
+  receipt_completed_by?: number
+  created_by_name?: string
+  confirmed_by_name?: string
+  shipped_by_name?: string
+  delivered_by_name?: string
+  receipt_completed_by_name?: string
 
   // 状态
   status: ShipmentStatus
+  receipt_status: ShipmentReceiptStatus
+  receipt_completed_at?: string
   inventory_locked: boolean
   inventory_deducted: boolean
 
@@ -127,11 +138,12 @@ export interface Shipment {
 export interface ShipmentItem {
   id: number
   shipment_id: number
-  sku_id: number
+  product_id: number
 
   // 数量
   quantity_planned: number
   quantity_shipped: number
+  quantity_received: number
 
   // 装箱信息
   package_spec_id?: number
@@ -148,11 +160,12 @@ export interface ShipmentItem {
   updated_at: string
 
   // 关联
-  sku?: Sku
+  product?: ProductSummary
   package_spec?: PackageSpec
 }
 
 export type ShipmentStatus = 'DRAFT' | 'CONFIRMED' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED'
+export type ShipmentReceiptStatus = 'PENDING' | 'PARTIAL' | 'COMPLETED'
 
 export type DestinationType = 'PLATFORM_WAREHOUSE' | 'CUSTOMER' | 'OWN_WAREHOUSE' | 'SUPPLIER' | 'OTHER'
 
@@ -202,8 +215,38 @@ export interface CreateShipmentParams {
   packaging_items?: PackagingConsumptionItem[]  // 包材消耗列表
 }
 
+export interface UpdateShipmentParams {
+  order_number?: string
+  sales_channel?: string
+  warehouse_id?: number
+
+  destination_warehouse_id?: number
+  destination_type?: DestinationType
+  destination_name?: string
+  destination_code?: string
+  destination_contact?: string
+  destination_phone?: string
+  destination_address?: string
+
+  logistics_provider_id?: number
+  shipping_rate_id?: number
+  transport_mode?: string
+  carrier?: string
+  tracking_number?: string
+  expected_delivery_date?: string
+
+  box_count?: number
+  total_weight?: number
+  total_volume?: number
+
+  remark?: string
+  internal_notes?: string
+
+  items?: CreateShipmentItemParams[]
+}
+
 export interface CreateShipmentItemParams {
-  sku_id: number
+  product_id: number
   quantity_planned: number
   package_spec_id?: number
   box_quantity?: number
@@ -300,6 +343,21 @@ export const SHIPMENT_STATUS_CONFIG = {
     color: 'danger',
     icon: '❌',
     description: '已取消'
+  }
+} as const
+
+export const SHIPMENT_RECEIPT_STATUS_CONFIG = {
+  PENDING: {
+    label: '待接收',
+    color: 'info'
+  },
+  PARTIAL: {
+    label: '部分接收',
+    color: 'warning'
+  },
+  COMPLETED: {
+    label: '已接收',
+    color: 'success'
   }
 } as const
 

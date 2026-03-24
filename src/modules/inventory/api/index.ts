@@ -2,9 +2,11 @@ import request from '@/utils/request'
 import type {
   Warehouse,
   InventoryBalance,
+  InventoryLot,
   InventoryMovement,
   WarehouseListParams,
   BalanceListParams,
+  InventoryLotListParams,
   MovementListParams,
   CreateWarehouseParams,
   CreateMovementParams,
@@ -73,29 +75,23 @@ export function getBalanceList(params: BalanceListParams) {
   })
 }
 
-export function getBalanceDetail(id: number) {
-  return request<ApiResponse<InventoryBalance>>({
-    url: `/api/inventory/balances/${id}`,
-    method: 'get'
+export function getInventoryLotList(params: InventoryLotListParams) {
+  return request<ApiResponse<PaginatedResponse<InventoryLot>>>({
+    url: '/api/v1/inventory/lots',
+    method: 'get',
+    params
   })
 }
 
-export function getSkuBalances(skuId: number) {
+export function getProductBalances(productId: number) {
   return request<ApiResponse<PaginatedResponse<InventoryBalance>>>({
     url: `/api/v1/inventory/balances`,
     method: 'get',
     params: {
-      sku_id: skuId,
+      product_id: productId,
       page: 1,
       page_size: 100
     }
-  })
-}
-
-export function getWarehouseSummary(warehouseId: number) {
-  return request<ApiResponse<any>>({
-    url: `/api/inventory/balances/warehouse/${warehouseId}/summary`,
-    method: 'get'
   })
 }
 
@@ -115,22 +111,6 @@ export function getMovementDetail(id: number) {
   return request<ApiResponse<InventoryMovement>>({
     url: `/api/v1/inventory/movements/${id}`,
     method: 'get'
-  })
-}
-
-export function recordPurchaseReceipt(data: CreateMovementParams) {
-  return request<ApiResponse<InventoryMovement>>({
-    url: '/api/v1/inventory/movements/purchase-receipt',
-    method: 'post',
-    data
-  })
-}
-
-export function recordSalesShipment(data: CreateMovementParams) {
-  return request<ApiResponse<InventoryMovement>>({
-    url: '/api/v1/inventory/movements/sales-shipment',
-    method: 'post',
-    data
   })
 }
 
@@ -158,14 +138,6 @@ export function recordDamageWriteOff(data: CreateMovementParams) {
   })
 }
 
-export function recordReturnReceipt(data: CreateMovementParams) {
-  return request<ApiResponse<InventoryMovement>>({
-    url: '/api/v1/inventory/movements/return-receipt',
-    method: 'post',
-    data
-  })
-}
-
 export function recordTransfer(data: CreateTransferParams) {
   return request<ApiResponse<any>>({
     url: '/api/v1/inventory/movements/transfer',
@@ -178,42 +150,6 @@ export function recordTransfer(data: CreateTransferParams) {
 // 库存状态流转 APIs
 // ============================================
 
-// 供应商发货 → 采购在途
-export function recordPurchaseShip(data: CreateMovementParams) {
-  return request<ApiResponse<InventoryMovement>>({
-    url: '/api/v1/inventory/movements/purchase-ship',
-    method: 'post',
-    data
-  })
-}
-
-// 到仓收货: 采购在途 → 待检
-export function recordWarehouseReceive(data: CreateMovementParams) {
-  return request<ApiResponse<InventoryMovement>>({
-    url: '/api/v1/inventory/movements/warehouse-receive',
-    method: 'post',
-    data
-  })
-}
-
-// 质检通过: 待检 → 原料库存
-export function recordInspectionPass(data: CreateMovementParams) {
-  return request<ApiResponse<InventoryMovement>>({
-    url: '/api/v1/inventory/movements/inspection-pass',
-    method: 'post',
-    data
-  })
-}
-
-// 质检不合格: 待检 → 损坏
-export function recordInspectionFail(data: CreateMovementParams) {
-  return request<ApiResponse<InventoryMovement>>({
-    url: '/api/v1/inventory/movements/inspection-fail',
-    method: 'post',
-    data
-  })
-}
-
 // 组装完成: 原料库存 → 待出库存
 export function recordAssemblyComplete(data: CreateMovementParams) {
   return request<ApiResponse<InventoryMovement>>({
@@ -223,49 +159,3 @@ export function recordAssemblyComplete(data: CreateMovementParams) {
   })
 }
 
-// 物流发货: 待出库存 → 物流在途
-export function recordLogisticsShip(data: CreateMovementParams) {
-  return request<ApiResponse<InventoryMovement>>({
-    url: '/api/v1/inventory/movements/logistics-ship',
-    method: 'post',
-    data
-  })
-}
-
-// 平台上架: 物流在途 → 可售库存
-export function recordPlatformReceive(data: CreateMovementParams) {
-  return request<ApiResponse<InventoryMovement>>({
-    url: '/api/v1/inventory/movements/platform-receive',
-    method: 'post',
-    data
-  })
-}
-
-// 退货入库 → 退货库存
-export function recordReturnReceive(data: CreateMovementParams) {
-  return request<ApiResponse<InventoryMovement>>({
-    url: '/api/v1/inventory/movements/return-receive',
-    method: 'post',
-    data
-  })
-}
-
-// 退货质检
-export interface ReturnInspectParams {
-  sku_id: number
-  warehouse_id: number
-  pass_quantity: number
-  fail_quantity: number
-  remark?: string
-  operator_id?: number
-  reference_type?: string
-  reference_number?: string
-}
-
-export function recordReturnInspect(data: ReturnInspectParams) {
-  return request<ApiResponse<any>>({
-    url: '/api/v1/inventory/movements/return-inspect',
-    method: 'post',
-    data
-  })
-}

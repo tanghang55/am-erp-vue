@@ -63,8 +63,12 @@ const handleUpload = async (file: File) => {
 
   try {
     const response = await uploadImage(file, props.subDir)
-    imageUrl.value = response.url
-    emit('update:modelValue', response.url)
+    const uploadedUrl = response.data?.url
+    if (!uploadedUrl) {
+      throw new Error('Failed to upload image')
+    }
+    imageUrl.value = uploadedUrl
+    emit('update:modelValue', uploadedUrl)
     ElMessage.success('Image uploaded successfully')
     return true
   } catch (error: any) {

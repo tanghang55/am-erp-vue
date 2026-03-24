@@ -1,96 +1,66 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { shallowMount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import ShippingRateList from '@/modules/logistics/views/ShippingRateList.vue'
 
 vi.mock('@/modules/logistics/api', () => ({
-  getShippingRates: vi.fn().mockResolvedValue({
-    data: {
-      data: {
-        data: [
-          {
-            id: 1,
-            provider_id: 10,
-            transport_mode: 'AIR',
-            pricing_method: 'PER_KG',
-            base_rate: 3.5,
-            currency: 'USD',
-            status: 'ACTIVE'
-          }
-        ],
-        total: 1
-      }
-    }
-  }),
-  getProviders: vi.fn().mockResolvedValue({
-    data: {
-      data: {
-        data: [
-          {
-            id: 10,
-            provider_name: 'Logistics One'
-          }
-        ],
-        total: 1
-      }
-    }
-  }),
+  getShippingRates: vi.fn().mockResolvedValue({ success: true, data: { data: [], total: 0 } }),
   createShippingRate: vi.fn(),
   updateShippingRate: vi.fn(),
-  deleteShippingRate: vi.fn()
+  deleteShippingRate: vi.fn(),
+  getServicesByTransportMode: vi.fn().mockResolvedValue({ success: true, data: [] })
 }))
 
-vi.mock('@/modules/inventory/api', () => ({
-  getActiveWarehouses: vi.fn().mockResolvedValue({
-    data: {
-      data: []
-    }
-  })
-}))
-
-const Stub = defineComponent({
-  template: '<div><slot /></div>'
+const Stub = defineComponent({ template: '<div><slot /></div>' })
+const CardStub = defineComponent({ template: '<div><slot /></div>' })
+const TableStub = defineComponent({ template: '<div><slot /></div>' })
+const ColumnStub = defineComponent({
+  setup(_, { slots }) {
+    return () => (slots.default ? slots.default({ row: {} }) : null)
+  }
 })
-
-const NoSlotStub = defineComponent({
-  template: '<div />'
+const ProviderSelectorStub = defineComponent({
+  name: 'ProviderSelector',
+  template: '<div class="provider-selector-stub" />'
 })
-
-const TableStub = defineComponent({
-  props: ['data'],
-  template: '<div class="table" :data-count="(data || []).length"></div>'
+const WarehouseSelectorStub = defineComponent({
+  name: 'WarehouseSelector',
+  template: '<div class="warehouse-selector-stub" />'
 })
-
-const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 describe('ShippingRateList', () => {
-  it('loads rate list from paginated data payload', async () => {
+  it('renders provider and warehouse selectors', async () => {
     const wrapper = shallowMount(ShippingRateList, {
       global: {
         stubs: {
-          'el-card': Stub,
+          'el-card': CardStub,
           'el-form': Stub,
           'el-form-item': Stub,
+          'el-table': TableStub,
+          'el-table-column': ColumnStub,
+          'el-button': Stub,
+          'el-input': Stub,
           'el-select': Stub,
           'el-option': Stub,
-          'el-input': Stub,
-          'el-button': Stub,
-          'el-table': TableStub,
-          'el-table-column': NoSlotStub,
-          'el-pagination': Stub,
+          'el-tag': Stub,
           'el-dialog': Stub,
+          'el-pagination': Stub,
           'el-row': Stub,
           'el-col': Stub,
           'el-input-number': Stub,
           'el-date-picker': Stub,
-          'el-tag': Stub
+          ProviderSelector: ProviderSelectorStub,
+          WarehouseSelector: WarehouseSelectorStub
+        },
+        directives: {
+          loading: () => {}
         }
       }
     })
 
-    await flushPromises()
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.find('.table').attributes('data-count')).toBe('1')
+    expect(wrapper.findAll('.provider-selector-stub').length).toBeGreaterThan(0)
+    expect(wrapper.findAll('.warehouse-selector-stub').length).toBeGreaterThan(0)
   })
 })

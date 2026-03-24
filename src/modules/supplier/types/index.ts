@@ -4,6 +4,9 @@ export interface Supplier {
   name: string
   status: 'ACTIVE' | 'DISABLED'
   remark?: string
+  reference_count?: number
+  deletable?: boolean
+  delete_block_reason?: string
   gmt_create: string
   gmt_modified: string
   types?: SupplierType[]
@@ -94,6 +97,8 @@ export interface QuoteListParams {
   page_size?: number
   keyword?: string
   marketplace?: string
+  product_id?: number
+  product_ids?: number[]
   supplier_id?: number
 }
 

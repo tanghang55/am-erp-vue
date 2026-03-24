@@ -1,0 +1,4 @@
+order_date,order_no,external_order_no,line_no,seller_sku,qty,marketplace,currency,unit_price,sales_channel
+2026-03-01,AMZ-TEST-10001,AMZ-TEST-10001,1,SKU-MAIN-001,2,US,USD,19.99,Amazon
+2026-03-01,AMZ-TEST-10001,AMZ-TEST-10001,2,SKU-CHILD-002,1,US,USD,9.99,Amazon
+2026-03-01,AMZ-TEST-10002,AMZ-TEST-10002,1,SKU-TEST-101,3,US,USD,7.50,Manual

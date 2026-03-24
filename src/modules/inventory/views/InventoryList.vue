@@ -13,50 +13,55 @@
         </div>
       </template>
 
-      <!-- 搜索表单 -->
-      <el-form :inline="true" :model="searchForm" class="search-form">
-        <el-form-item :label="labels.warehouse">
-          <warehouse-selector
-            v-model="searchForm.warehouse_id"
-            :placeholder="labels.allWarehouses"
-            style="width: 200px"
-          />
-        </el-form-item>
-        <el-form-item :label="labels.sku">
-          <el-input
-            v-model="searchForm.keyword"
-            :placeholder="labels.keywordPlaceholder"
-            clearable
-            style="width: 200px"
-            @keyup.enter="handleSearch"
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-checkbox v-model="searchForm.low_stock">{{ labels.lowStock }}</el-checkbox>
-          <el-checkbox v-model="searchForm.zero_stock">{{ labels.zeroStock }}</el-checkbox>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">{{ labels.search }}</el-button>
-          <el-button @click="handleReset">{{ labels.reset }}</el-button>
-        </el-form-item>
-      </el-form>
+      <div class="search-toolbar">
+        <div class="search-toolbar__intro">
+          <div class="search-toolbar__title">{{ labels.searchTitle }}</div>
+          <div class="search-toolbar__meta">{{ labels.searchDescription }}</div>
+        </div>
+        <el-form :inline="true" :model="searchForm" class="search-form">
+          <el-form-item class="search-form__keyword">
+            <el-input
+              v-model="searchForm.keyword"
+              :placeholder="labels.keywordPlaceholder"
+              clearable
+              @keyup.enter="handleSearch"
+            />
+          </el-form-item>
+          <el-form-item>
+            <warehouse-selector
+              v-model="searchForm.warehouse_id"
+              :placeholder="labels.allWarehouses"
+              style="width: 180px"
+            />
+          </el-form-item>
+          <el-form-item>
+            <el-checkbox v-model="searchForm.low_stock">{{ labels.lowStock }}</el-checkbox>
+          </el-form-item>
+          <el-form-item>
+            <el-checkbox v-model="searchForm.zero_stock">{{ labels.zeroStock }}</el-checkbox>
+          </el-form-item>
+          <el-form-item class="search-form__actions">
+            <el-button type="primary" @click="handleSearch">{{ labels.search }}</el-button>
+            <el-button @click="handleReset">{{ labels.reset }}</el-button>
+          </el-form-item>
+        </el-form>
+      </div>
 
       <!-- 数据表格 -->
       <el-table :data="list" v-loading="loading" border stripe row-key="id" size="small">
-        <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column :label="labels.skuInfo" min-width="180">
+        <el-table-column :label="labels.productInfo" min-width="180">
           <template #default="{ row }">
-            <div v-if="row.sku">
-              <div style="font-weight: bold">{{ row.sku.seller_sku }}</div>
-              <div style="font-size: 12px; color: #606266">{{ row.sku.title }}</div>
+            <div v-if="row.product">
+              <div style="font-weight: bold">{{ row.product.seller_sku }}</div>
+              <div style="font-size: 12px; color: #606266">{{ row.product.title }}</div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column :label="labels.warehouse" width="120">
+        <el-table-column :label="labels.warehouse" width="180">
           <template #default="{ row }">
             <div v-if="row.warehouse">
-              <div style="font-weight: bold">{{ row.warehouse.code }}</div>
-              <div style="font-size: 12px; color: #909399">{{ row.warehouse.name }}</div>
+              <div style="font-weight: bold">{{ row.warehouse.name || '-' }}</div>
+              <div v-if="row.warehouse.code" style="font-size: 12px; color: #909399">{{ row.warehouse.code }}</div>
             </div>
           </template>
         </el-table-column>
@@ -122,12 +127,13 @@
             <el-tag type="info" size="small">{{ row.total_quantity }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="labels.actions" width="160" fixed="right">
+        <el-table-column :label="labels.actions" width="210" fixed="right">
           <template #default="{ row }">
             <el-button size="small" link type="primary" @click="handleView(row)">{{ labels.view }}</el-button>
-            <el-button size="small" link type="primary" @click="handleViewSkuBalances(row)">
+            <el-button size="small" link type="primary" @click="handleViewProductBalances(row)">
               {{ labels.crossWarehouse }}
             </el-button>
+            <el-button size="small" link type="primary" @click="handleViewLots(row)">{{ labels.lots }}</el-button>
             <el-button size="small" link type="primary" @click="handleViewMovements(row)">{{ labels.movements }}</el-button>
           </template>
         </el-table-column>
@@ -147,101 +153,82 @@
     </el-card>
 
     <!-- 查看详情对话框 -->
-    <el-dialog v-model="detailVisible" :title="labels.detailTitle" width="800px">
-      <el-descriptions :column="2" border v-if="currentBalance">
-        <el-descriptions-item :label="labels.sku" :span="2">
-          <div v-if="currentBalance.sku">
-            <div style="font-weight: bold">{{ currentBalance.sku.seller_sku }}</div>
-            <div style="font-size: 12px; color: #909399">
-              ASIN: {{ currentBalance.sku.asin }}
+    <el-dialog v-model="detailVisible" :title="labels.detailTitle" width="920px">
+      <div v-if="currentBalance" class="detail-layout">
+        <div class="detail-main">
+          <section class="detail-section-card">
+            <div class="detail-section-header">
+              <div>
+                <div class="detail-section-title">{{ labels.product }}</div>
+                <div class="detail-section-subtitle">{{ labels.detailSubtitle }}</div>
+              </div>
             </div>
-          </div>
-        </el-descriptions-item>
-        <el-descriptions-item :label="labels.warehouse" :span="2">
-          <div v-if="currentBalance.warehouse">
-            {{ currentBalance.warehouse.code }} - {{ currentBalance.warehouse.name }}
-          </div>
-        </el-descriptions-item>
-      </el-descriptions>
+            <div class="detail-hero">
+              <div class="detail-hero-main">
+                <div class="detail-hero-code">{{ currentBalance.product?.seller_sku || currentBalance.product_id }}</div>
+                <div class="detail-hero-title">{{ currentBalance.product?.title || '-' }}</div>
+                <div class="detail-hero-meta">
+                  <span>ASIN: {{ currentBalance.product?.asin || '-' }}</span>
+                  <span>{{ labels.warehouse }}：{{ currentWarehouseDisplay }}</span>
+                </div>
+              </div>
+            </div>
+          </section>
 
-      <!-- 库存状态明细 -->
-      <div style="margin-top: 20px">
-        <h4 style="margin-bottom: 12px">{{ localeStore.isEnglish ? 'Stock Status' : '库存状态明细' }}</h4>
-        <el-row :gutter="12" v-if="currentBalance">
-          <el-col :span="6">
-            <el-statistic :title="localeStore.isEnglish ? 'Purchasing In Transit' : '采购在途'" :value="currentBalance.purchasing_in_transit || 0">
-              <template #prefix><span style="color: #409EFF">🚚</span></template>
-            </el-statistic>
-          </el-col>
-          <el-col :span="6">
-            <el-statistic :title="localeStore.isEnglish ? 'Pending Inspection' : '待检库存'" :value="currentBalance.pending_inspection || 0">
-              <template #prefix><span style="color: #E6A23C">🔍</span></template>
-            </el-statistic>
-          </el-col>
-          <el-col :span="6">
-            <el-statistic :title="localeStore.isEnglish ? 'Raw Material' : '原料库存'" :value="currentBalance.raw_material || 0">
-              <template #prefix><span style="color: #67C23A">📦</span></template>
-            </el-statistic>
-          </el-col>
-          <el-col :span="6">
-            <el-statistic :title="localeStore.isEnglish ? 'Pending Shipment' : '待出库存'" :value="currentBalance.pending_shipment || 0">
-              <template #prefix><span style="color: #909399">📤</span></template>
-            </el-statistic>
-          </el-col>
-        </el-row>
-        <el-row :gutter="12" style="margin-top: 16px" v-if="currentBalance">
-          <el-col :span="6">
-            <el-statistic :title="localeStore.isEnglish ? 'Logistics In Transit' : '物流在途'" :value="currentBalance.logistics_in_transit || 0">
-              <template #prefix><span style="color: #409EFF">✈️</span></template>
-            </el-statistic>
-          </el-col>
-          <el-col :span="6">
-            <el-statistic :title="localeStore.isEnglish ? 'Sellable' : '可售库存'" :value="currentBalance.sellable || 0">
-              <template #prefix><span style="color: #67C23A">🏪</span></template>
-            </el-statistic>
-          </el-col>
-          <el-col :span="6">
-            <el-statistic :title="localeStore.isEnglish ? 'Returned' : '退货库存'" :value="currentBalance.returned || 0">
-              <template #prefix><span style="color: #E6A23C">↩️</span></template>
-            </el-statistic>
-          </el-col>
-          <el-col :span="6">
-            <el-statistic :title="localeStore.isEnglish ? 'Damaged' : '损坏库存'" :value="currentBalance.damaged_quantity || 0">
-              <template #prefix><span style="color: #F56C6C">💥</span></template>
-            </el-statistic>
-          </el-col>
-        </el-row>
+          <section class="detail-section-card">
+            <div class="detail-section-header">
+              <div>
+                <div class="detail-section-title">{{ labels.stockStatusTitle }}</div>
+                <div class="detail-section-subtitle">{{ labels.stockStatusSubtitle }}</div>
+              </div>
+            </div>
+            <div class="summary-grid">
+              <div v-for="item in detailStatusCards" :key="item.key" class="summary-tile">
+                <div class="summary-label">{{ item.label }}</div>
+                <div class="summary-value" :class="item.value > 0 ? item.className : ''">{{ item.value }}</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="detail-section-card">
+            <div class="detail-section-header">
+              <div>
+                <div class="detail-section-title">{{ labels.summaryTitle }}</div>
+                <div class="detail-section-subtitle">{{ labels.summarySubtitle }}</div>
+              </div>
+            </div>
+            <div class="info-grid">
+              <div class="info-item">
+                <div class="info-label">{{ labels.availableQty }}</div>
+                <div class="info-value"><stock-level-indicator :quantity="currentBalance.available_quantity" /></div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">{{ labels.reservedQty }}</div>
+                <div class="info-value">{{ currentBalance.reserved_quantity || 0 }}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">{{ labels.totalQty }}</div>
+                <div class="info-value">{{ currentBalance.total_quantity || 0 }}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">{{ labels.lastMovementAt }}</div>
+                <div class="info-value">{{ currentBalance.last_movement_at || '-' }}</div>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
-
-      <!-- 汇总信息 -->
-      <el-descriptions :column="2" border style="margin-top: 20px" v-if="currentBalance">
-        <el-descriptions-item :label="labels.availableQty">
-          <stock-level-indicator :quantity="currentBalance.available_quantity" />
-        </el-descriptions-item>
-        <el-descriptions-item :label="labels.reservedQty">
-          <el-tag v-if="currentBalance.reserved_quantity > 0" type="warning">
-            {{ currentBalance.reserved_quantity }}
-          </el-tag>
-          <span v-else>0</span>
-        </el-descriptions-item>
-        <el-descriptions-item :label="labels.totalQty">
-          <el-tag type="info" size="large">{{ currentBalance.total_quantity }}</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item :label="labels.lastMovementAt">
-          {{ currentBalance.last_movement_at || '-' }}
-        </el-descriptions-item>
-      </el-descriptions>
     </el-dialog>
 
-    <!-- SKU跨仓库库存对话框 -->
-    <el-dialog v-model="skuBalancesVisible" :title="labels.skuBalancesTitle" width="800px">
-      <div v-if="currentSkuBalances.length > 0">
-        <el-table :data="currentSkuBalances" border>
+    <!-- 产品跨仓库库存对话框 -->
+    <el-dialog v-model="productBalancesVisible" :title="labels.productBalancesTitle" width="800px">
+      <div v-if="currentProductBalances.length > 0">
+        <el-table :data="currentProductBalances" border>
           <el-table-column :label="labels.warehouse" min-width="200">
             <template #default="{ row }">
               <div>
-                <div style="font-weight: bold">{{ row.warehouse_code }}</div>
-                <div style="font-size: 12px; color: #909399">{{ row.warehouse_name }}</div>
+                <div style="font-weight: bold">{{ row.warehouse_name || '-' }}</div>
+                <div v-if="row.warehouse_code" style="font-size: 12px; color: #909399">{{ row.warehouse_code }}</div>
               </div>
             </template>
           </el-table-column>
@@ -260,45 +247,26 @@
           <el-table-column prop="last_movement_at" :label="labels.lastMovement" width="160" />
         </el-table>
 
-        <!-- 汇总 -->
-        <div style="margin-top: 20px; padding: 15px; background: #f5f7fa; border-radius: 4px">
-          <el-row :gutter="20">
-            <el-col :span="6">
-              <div style="text-align: center">
-                <div style="font-size: 12px; color: #909399">{{ labels.totalAvailable }}</div>
-                <div style="font-size: 24px; font-weight: bold; color: #67C23A">
-                  {{ totalAvailable }}
-                </div>
-              </div>
-            </el-col>
-            <el-col :span="6">
-              <div style="text-align: center">
-                <div style="font-size: 12px; color: #909399">{{ labels.totalReserved }}</div>
-                <div style="font-size: 24px; font-weight: bold; color: #E6A23C">
-                  {{ totalReserved }}
-                </div>
-              </div>
-            </el-col>
-            <el-col :span="6">
-              <div style="text-align: center">
-                <div style="font-size: 12px; color: #909399">{{ labels.totalDamaged }}</div>
-                <div style="font-size: 24px; font-weight: bold; color: #F56C6C">
-                  {{ totalDamaged }}
-                </div>
-              </div>
-            </el-col>
-            <el-col :span="6">
-              <div style="text-align: center">
-                <div style="font-size: 12px; color: #909399">{{ labels.totalStock }}</div>
-                <div style="font-size: 24px; font-weight: bold; color: #409EFF">
-                  {{ totalQuantity }}
-                </div>
-              </div>
-            </el-col>
-          </el-row>
+        <div class="summary-grid summary-grid--dialog">
+          <div class="summary-tile">
+            <div class="summary-label">{{ labels.totalAvailable }}</div>
+            <div class="summary-value summary-value--positive">{{ totalAvailable }}</div>
+          </div>
+          <div class="summary-tile">
+            <div class="summary-label">{{ labels.totalReserved }}</div>
+            <div class="summary-value summary-value--warning">{{ totalReserved }}</div>
+          </div>
+          <div class="summary-tile">
+            <div class="summary-label">{{ labels.totalDamaged }}</div>
+            <div class="summary-value summary-value--danger">{{ totalDamaged }}</div>
+          </div>
+          <div class="summary-tile">
+            <div class="summary-label">{{ labels.totalStock }}</div>
+            <div class="summary-value summary-value--primary">{{ totalQuantity }}</div>
+          </div>
         </div>
       </div>
-      <el-empty v-else :description="labels.emptySkuBalances" />
+      <el-empty v-else :description="labels.emptyProductBalances" />
     </el-dialog>
   </div>
 </template>
@@ -308,7 +276,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
-import { getBalanceList, getSkuBalances } from '../api'
+import { getBalanceList, getProductBalances } from '../api'
 import type { InventoryBalance } from '../types'
 import WarehouseSelector from '../components/WarehouseSelector.vue'
 import StockLevelIndicator from '../components/StockLevelIndicator.vue'
@@ -322,11 +290,13 @@ const labels = computed(() => {
     return {
       title: 'Inventory Balances',
       export: 'Export Excel',
+      searchTitle: 'Search Inventory',
+      searchDescription: 'Search by product code, ASIN, title, warehouse, and stock conditions.',
       warehouse: 'Warehouse',
       allWarehouses: 'All Warehouses',
-      sku: 'SKU',
-      skuInfo: 'SKU Info',
-      keywordPlaceholder: 'SKU/ASIN/Title',
+      product: 'Product',
+      productInfo: 'Product Info',
+      keywordPlaceholder: 'Product Code / ASIN / Title',
       lowStock: 'Low Stock',
       zeroStock: 'Zero Stock',
       search: 'Search',
@@ -339,31 +309,39 @@ const labels = computed(() => {
       actions: 'Actions',
       view: 'View',
       crossWarehouse: 'Cross-Warehouse',
+      lots: 'Lots',
       movements: 'Movements',
       detailTitle: 'Inventory Balance Details',
+      detailSubtitle: 'Review stock status, warehouse summary and latest movement',
       reservedQty: 'Reserved Quantity',
       damagedQty: 'Damaged Quantity',
       totalQty: 'Total Quantity',
       lastMovementAt: 'Last Movement',
       createdAt: 'Created At',
       updatedAt: 'Updated At',
-      skuBalancesTitle: 'SKU Balances by Warehouse',
+      stockStatusTitle: 'Stock Status',
+      stockStatusSubtitle: 'Track each inventory pool under the current warehouse',
+      summaryTitle: 'Summary',
+      summarySubtitle: 'Review available, reserved and total stock at a glance',
+      productBalancesTitle: 'Product Balances by Warehouse',
       available: 'Available',
       totalAvailable: 'Total Available',
       totalReserved: 'Total Reserved',
       totalDamaged: 'Total Damaged',
       totalStock: 'Total Stock',
-      emptySkuBalances: 'No inventory in any warehouse for this SKU.'
+      emptyProductBalances: 'No inventory in any warehouse for this product.'
     }
   }
   return {
     title: '库存余额',
     export: '导出Excel',
+    searchTitle: '搜索库存',
+    searchDescription: '按产品编码、ASIN、标题、仓库和库存条件快速定位库存。',
     warehouse: '仓库',
     allWarehouses: '全部仓库',
-    sku: 'SKU',
-    skuInfo: 'SKU信息',
-    keywordPlaceholder: 'SKU/ASIN/标题',
+    product: '产品',
+    productInfo: '产品信息',
+    keywordPlaceholder: '产品编码 / ASIN / 标题',
     lowStock: '低库存',
     zeroStock: '零库存',
     search: '搜索',
@@ -376,21 +354,27 @@ const labels = computed(() => {
     actions: '操作',
     view: '查看',
     crossWarehouse: '跨仓库',
+    lots: '批次',
     movements: '流水',
     detailTitle: '库存余额详情',
+    detailSubtitle: '集中查看当前仓库下的库存状态与汇总',
     reservedQty: '预留数量',
     damagedQty: '损坏数量',
     totalQty: '总计数量',
     lastMovementAt: '最后变动时间',
     createdAt: '创建时间',
     updatedAt: '更新时间',
-    skuBalancesTitle: 'SKU跨仓库库存分布',
+    stockStatusTitle: '库存状态',
+    stockStatusSubtitle: '查看当前仓库下各库存池的数量分布',
+    summaryTitle: '汇总信息',
+    summarySubtitle: '集中查看可用、预留和总库存',
+    productBalancesTitle: '产品跨仓库库存分布',
     available: '可用',
     totalAvailable: '总可用',
     totalReserved: '总预留',
     totalDamaged: '总损坏',
     totalStock: '总库存',
-    emptySkuBalances: '该SKU在所有仓库都没有库存'
+      emptyProductBalances: '该产品在所有仓库都没有库存'
   }
 })
 
@@ -417,9 +401,9 @@ const pagination = reactive({
 const detailVisible = ref(false)
 const currentBalance = ref<InventoryBalance | null>(null)
 
-// SKU跨仓库库存对话框
-const skuBalancesVisible = ref(false)
-const currentSkuBalances = ref<any[]>([])
+// 产品跨仓库库存对话框
+const productBalancesVisible = ref(false)
+const currentProductBalances = ref<any[]>([])
 
 // 导出状态
 const exporting = ref(false)
@@ -471,13 +455,13 @@ const handleView = (row: InventoryBalance) => {
   detailVisible.value = true
 }
 
-// 查看SKU跨仓库库存
-const handleViewSkuBalances = async (row: InventoryBalance) => {
+// 查看产品跨仓库库存
+const handleViewProductBalances = async (row: InventoryBalance) => {
   try {
-    const res = await getSkuBalances(row.sku_id)
+    const res = await getProductBalances(row.product_id)
     if (res.data) {
       // Convert InventoryBalance to expected format
-      currentSkuBalances.value = res.data.data.map(balance => ({
+      currentProductBalances.value = res.data.data.map(balance => ({
         warehouse_code: balance.warehouse?.code || '',
         warehouse_name: balance.warehouse?.name || '',
         available_quantity: balance.available_quantity,
@@ -486,21 +470,31 @@ const handleViewSkuBalances = async (row: InventoryBalance) => {
         total_quantity: balance.total_quantity,
         last_movement_at: balance.last_movement_at
       }))
-      skuBalancesVisible.value = true
+      productBalancesVisible.value = true
     }
   } catch (error) {
-    console.error('Failed to load SKU balances:', error)
-    ElMessage.error(localeStore.isEnglish ? 'Failed to load SKU balances' : '加载SKU库存失败')
+    console.error('Failed to load product balances:', error)
+    ElMessage.error(localeStore.isEnglish ? 'Failed to load product balances' : '加载产品库存失败')
   }
 }
 
 // 查看流水（跳转到流水页面）
 const handleViewMovements = (row: InventoryBalance) => {
-  // 跳转到流水页面，传递sku_id和warehouse_id作为筛选条件
+  // 跳转到流水页面，传递 product_id 和 warehouse_id 作为筛选条件
   router.push({
     name: 'inventory-movements',
     query: {
-      sku_id: row.sku_id,
+      product_id: row.product_id,
+      warehouse_id: row.warehouse_id
+    }
+  })
+}
+
+const handleViewLots = (row: InventoryBalance) => {
+  router.push({
+    name: 'inventory-lots',
+    query: {
+      product_id: row.product_id,
       warehouse_id: row.warehouse_id
     }
   })
@@ -516,21 +510,81 @@ const handleExport = () => {
   }, 1000)
 }
 
-// SKU跨仓库汇总
+// 产品跨仓库汇总
 const totalAvailable = computed(() => {
-  return currentSkuBalances.value.reduce((sum, item) => sum + item.available_quantity, 0)
+  return currentProductBalances.value.reduce((sum, item) => sum + item.available_quantity, 0)
 })
 
 const totalReserved = computed(() => {
-  return currentSkuBalances.value.reduce((sum, item) => sum + item.reserved_quantity, 0)
+  return currentProductBalances.value.reduce((sum, item) => sum + item.reserved_quantity, 0)
 })
 
 const totalDamaged = computed(() => {
-  return currentSkuBalances.value.reduce((sum, item) => sum + item.damaged_quantity, 0)
+  return currentProductBalances.value.reduce((sum, item) => sum + item.damaged_quantity, 0)
 })
 
 const totalQuantity = computed(() => {
-  return currentSkuBalances.value.reduce((sum, item) => sum + item.total_quantity, 0)
+  return currentProductBalances.value.reduce((sum, item) => sum + item.total_quantity, 0)
+})
+
+const currentWarehouseDisplay = computed(() => {
+  if (!currentBalance.value?.warehouse) return '-'
+  const warehouse = currentBalance.value.warehouse
+  return warehouse.code ? `${warehouse.name || '-'}（${warehouse.code}）` : (warehouse.name || '-')
+})
+
+const detailStatusCards = computed(() => {
+  if (!currentBalance.value) return []
+  return [
+    {
+      key: 'purchasing',
+      label: localeStore.isEnglish ? 'Purchasing In Transit' : '采购在途',
+      value: currentBalance.value.purchasing_in_transit || 0,
+      className: 'summary-value--primary'
+    },
+    {
+      key: 'inspection',
+      label: localeStore.isEnglish ? 'Pending Inspection' : '待检库存',
+      value: currentBalance.value.pending_inspection || 0,
+      className: 'summary-value--warning'
+    },
+    {
+      key: 'raw',
+      label: localeStore.isEnglish ? 'Raw Material' : '原料库存',
+      value: currentBalance.value.raw_material || 0,
+      className: 'summary-value--positive'
+    },
+    {
+      key: 'pending',
+      label: localeStore.isEnglish ? 'Pending Shipment' : '待出库存',
+      value: currentBalance.value.pending_shipment || 0,
+      className: ''
+    },
+    {
+      key: 'logistics',
+      label: localeStore.isEnglish ? 'Logistics In Transit' : '物流在途',
+      value: currentBalance.value.logistics_in_transit || 0,
+      className: 'summary-value--primary'
+    },
+    {
+      key: 'sellable',
+      label: localeStore.isEnglish ? 'Sellable' : '可售库存',
+      value: currentBalance.value.sellable || 0,
+      className: 'summary-value--positive'
+    },
+    {
+      key: 'returned',
+      label: localeStore.isEnglish ? 'Returned' : '退货库存',
+      value: currentBalance.value.returned || 0,
+      className: 'summary-value--warning'
+    },
+    {
+      key: 'damaged',
+      label: localeStore.isEnglish ? 'Damaged' : '损坏库存',
+      value: currentBalance.value.damaged_quantity || 0,
+      className: 'summary-value--danger'
+    }
+  ]
 })
 
 onMounted(() => {
@@ -560,7 +614,186 @@ onMounted(() => {
 }
 
 .search-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 20px;
+}
+
+.search-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
   margin-bottom: 20px;
+  padding: 16px 18px;
+  border: 1px solid #ebeef5;
+  border-radius: 12px;
+  background: #fafafa;
+}
+
+.search-toolbar__intro {
+  min-width: 220px;
+}
+
+.search-toolbar__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.search-toolbar__meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.search-form__keyword :deep(.el-input) {
+  width: 260px;
+}
+
+.search-form__actions {
+  margin-left: auto;
+}
+
+.detail-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.detail-main {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.detail-section-card {
+  padding: 20px;
+  border: 1px solid #ebeef5;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.detail-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.detail-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.detail-section-subtitle {
+  margin-top: 4px;
+  color: #909399;
+  font-size: 13px;
+}
+
+.detail-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.detail-hero-main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-hero-code {
+  font-size: 22px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.detail-hero-title {
+  color: #606266;
+  font-size: 14px;
+}
+
+.detail-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  color: #909399;
+  font-size: 13px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.summary-grid--dialog {
+  margin-top: 20px;
+}
+
+.summary-tile {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #f7f9fc;
+}
+
+.summary-label {
+  color: #909399;
+  font-size: 12px;
+}
+
+.summary-value {
+  margin-top: 8px;
+  color: #303133;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.summary-value--primary {
+  color: #409eff;
+}
+
+.summary-value--positive {
+  color: #67c23a;
+}
+
+.summary-value--warning {
+  color: #e6a23c;
+}
+
+.summary-value--danger {
+  color: #f56c6c;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.info-item {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #fafafa;
+}
+
+.info-label {
+  color: #909399;
+  font-size: 12px;
+}
+
+.info-value {
+  margin-top: 8px;
+  color: #303133;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 /* 库存数量单元格样式 */
@@ -584,5 +817,24 @@ onMounted(() => {
 
 .stock-cell.damaged.has-value {
   color: #f56c6c;
+}
+
+@media (max-width: 768px) {
+  .search-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-form__actions {
+    margin-left: 0;
+  }
+
+  .search-form__keyword {
+    width: 100%;
+  }
+
+  .search-form__keyword :deep(.el-input) {
+    width: 100%;
+  }
 }
 </style>

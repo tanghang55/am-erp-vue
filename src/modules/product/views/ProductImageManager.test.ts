@@ -5,7 +5,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import ProductImageManager from '@/modules/product/views/ProductImageManager.vue'
 import { useI18nStore } from '@/modules/common/stores/i18nStore'
 import { useLocaleStore } from '@/modules/common/stores/localeStore'
-import { getSkuImageList } from '@/modules/product/api'
+import { getProductImageList } from '@/modules/product/api/images'
 
 const confirmMock = vi.hoisted(() => vi.fn())
 const guardHolder = vi.hoisted(() => ({ guard: null as null | (() => Promise<boolean> | boolean) }))
@@ -15,9 +15,13 @@ vi.mock('element-plus', () => ({
   ElMessageBox: { confirm: confirmMock }
 }))
 
-vi.mock('@/modules/product/api', () => ({
-  getSkuImageList: vi.fn().mockResolvedValue({ success: true, data: [] }),
-  saveSkuImageOrder: vi.fn()
+vi.mock('@/modules/product/api/products', () => ({
+  getProductDetail: vi.fn().mockResolvedValue({ success: true, data: { seller_sku: 'P-001', title: '测试产品', asin: 'B001' } }),
+}))
+
+vi.mock('@/modules/product/api/images', () => ({
+  getProductImageList: vi.fn().mockResolvedValue({ success: true, data: [] }),
+  saveProductImageOrder: vi.fn()
 }))
 
 vi.mock('vue-router', () => ({
@@ -88,10 +92,48 @@ describe('ProductImageManager', () => {
     expect(wrapper.findAll('[data-testid="image-slot"]').length).toBe(10)
   })
 
+  it('renders image management summary metrics', async () => {
+    const mockedGetProductImageList = vi.mocked(getProductImageList)
+    mockedGetProductImageList.mockResolvedValueOnce({ success: true, data: ['/uploads/a.png', '/uploads/b.png'] })
+    setActivePinia(createPinia())
+    const i18nStore = useI18nStore()
+    const localeStore = useLocaleStore()
+    localeStore.setLocale('zh-CN')
+    i18nStore.setLabels({
+      'product.images.title': '图片管理',
+      'product.images.metricTotal': '已上传',
+      'product.images.metricRemaining': '剩余槽位',
+      'product.images.metricPrimary': '当前主图',
+      'product.images.metricChanges': '待保存变更'
+    })
+
+    const wrapper = shallowMount(ProductImageManager, {
+      global: {
+        stubs: {
+          'el-card': CardStub,
+          'el-button': Stub,
+          'el-upload': Stub,
+          'el-image': Stub,
+          'el-tag': Stub,
+          'el-alert': Stub,
+          draggable: DraggableStub
+        }
+      }
+    })
+
+    await flushPromises()
+    const metrics = wrapper.findAll('[data-testid="summary-metric"]')
+    expect(metrics).toHaveLength(4)
+    expect(wrapper.text()).toContain('已上传')
+    expect(wrapper.text()).toContain('剩余槽位')
+    expect(wrapper.text()).toContain('当前主图')
+    expect(wrapper.text()).toContain('待保存变更')
+  })
+
   it('prompts when leaving with unsaved changes', async () => {
     confirmMock.mockResolvedValue(undefined)
-    const mockedGetSkuImageList = vi.mocked(getSkuImageList)
-    mockedGetSkuImageList.mockResolvedValueOnce({ success: true, data: ['/uploads/a.png'] })
+    const mockedGetProductImageList = vi.mocked(getProductImageList)
+    mockedGetProductImageList.mockResolvedValueOnce({ success: true, data: ['/uploads/a.png'] })
     setActivePinia(createPinia())
     const i18nStore = useI18nStore()
     const localeStore = useLocaleStore()

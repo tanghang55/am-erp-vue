@@ -17,74 +17,69 @@
         </div>
       </template>
 
-      <!-- 搜索表单 -->
-      <el-form :inline="true" :model="searchForm" class="search-form">
-        <el-form-item :label="labels.status">
-          <el-select
-            v-model="searchForm.status"
-            :placeholder="labels.allStatus"
-            clearable
-            style="width: 150px"
-          >
-            <el-option
-              v-for="(config, status) in SHIPMENT_STATUS_CONFIG"
-              :key="status"
-              :label="getStatusLabel(status as ShipmentStatus)"
-              :value="status"
+      <div class="search-toolbar">
+        <div class="search-toolbar__intro">
+          <div class="search-toolbar__title">{{ labels.searchTitle }}</div>
+          <div class="search-toolbar__meta">{{ labels.searchDescription }}</div>
+        </div>
+        <el-form :inline="true" :model="searchForm" class="search-form">
+          <el-form-item class="search-form__keyword">
+            <el-input
+              v-model="searchForm.keyword"
+              :placeholder="labels.keywordPlaceholder"
+              clearable
+              @keyup.enter="handleSearch"
+            />
+          </el-form-item>
+          <el-form-item>
+            <el-select
+              v-model="searchForm.status"
+              :placeholder="labels.allStatus"
+              clearable
+              style="width: 150px"
             >
-              <span>{{ config.icon }} {{ getStatusLabel(status as ShipmentStatus) }}</span>
-            </el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="labels.warehouse">
-          <warehouse-selector
-            v-model="searchForm.warehouse_id"
-            :placeholder="labels.allWarehouses"
-            clearable
-            style="width: 150px"
-          />
-        </el-form-item>
-        <el-form-item :label="labels.keyword">
-          <el-input
-            v-model="searchForm.keyword"
-            :placeholder="labels.keywordPlaceholder"
-            clearable
-            style="width: 220px"
-            @keyup.enter="handleSearch"
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">{{ labels.search }}</el-button>
-          <el-button @click="handleReset">{{ labels.reset }}</el-button>
-        </el-form-item>
-      </el-form>
-
-      <!-- 快速筛选标签 -->
-      <div class="quick-filters">
-        <el-tag
-          v-for="(config, status) in SHIPMENT_STATUS_CONFIG"
-          :key="status"
-          :type="config.color"
-          :effect="searchForm.status === status ? 'dark' : 'plain'"
-          style="cursor: pointer; margin-right: 8px; margin-bottom: 8px"
-          @click="handleQuickFilter(status)"
-        >
-          {{ config.icon }} {{ getStatusLabel(status as ShipmentStatus) }}
-        </el-tag>
-        <el-tag
-          v-if="searchForm.status"
-          type="info"
-          style="cursor: pointer"
-          @click="handleClearFilter"
-        >
-          {{ labels.clearFilter }}
-        </el-tag>
+              <el-option
+                v-for="(config, status) in SHIPMENT_STATUS_CONFIG"
+                :key="status"
+                :label="getStatusLabel(status as ShipmentStatus)"
+                :value="status"
+              >
+                <span>{{ config.icon }} {{ getStatusLabel(status as ShipmentStatus) }}</span>
+              </el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <warehouse-selector
+              v-model="searchForm.warehouse_id"
+              :placeholder="labels.allWarehouses"
+              clearable
+              style="width: 180px"
+            />
+          </el-form-item>
+          <el-form-item class="search-form__actions">
+            <el-button type="primary" @click="handleSearch">{{ labels.search }}</el-button>
+            <el-button @click="handleReset">{{ labels.reset }}</el-button>
+          </el-form-item>
+        </el-form>
       </div>
 
       <!-- 数据表格 -->
       <el-table :data="list" v-loading="loading" border stripe>
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="shipment_number" :label="labels.shipmentNumber" width="180" />
+        <el-table-column :label="labels.shipmentNumber" min-width="280">
+          <template #default="{ row }">
+            <div class="shipment-main">
+              <div class="shipment-number">{{ row.shipment_number }}</div>
+              <div class="shipment-meta">
+                <span>{{ labels.orderNumber }} {{ row.order_number || '-' }}</span>
+                <span>{{ labels.productCount }} {{ row.items?.length || 0 }}</span>
+                <span v-if="row.warehouse">
+                  {{ row.warehouse.name || '-' }}<template v-if="row.warehouse.code"> ({{ row.warehouse.code }})</template>
+                </span>
+              </div>
+              <div class="shipment-stock-note">{{ labels.inventoryFlowHint }}</div>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column :label="labels.status" width="120">
           <template #default="{ row }">
             <el-tag :type="SHIPMENT_STATUS_CONFIG[row.status]?.color">
@@ -93,43 +88,85 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="order_number" :label="labels.orderNumber" width="150" show-overflow-tooltip />
-        <el-table-column :label="labels.warehouse" width="150">
+        <el-table-column :label="labels.receiptStatus" width="120">
           <template #default="{ row }">
-            <span v-if="row.warehouse">{{ row.warehouse.name }}</span>
-            <span v-else style="color: #909399">-</span>
+            <el-tag :type="SHIPMENT_RECEIPT_STATUS_CONFIG[row.receipt_status]?.color || 'info'">
+              {{ getReceiptStatusLabel(row.receipt_status) }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="labels.logistics" width="200">
+        <el-table-column :label="labels.productInfo" min-width="320">
           <template #default="{ row }">
-            <div style="font-size: 12px">
-              <div v-if="row.carrier">{{ labels.carrier }}: {{ row.carrier }}</div>
-              <div v-if="row.tracking_number">{{ labels.trackingNumber }}: {{ row.tracking_number }}</div>
-              <div v-if="!row.carrier && !row.tracking_number" style="color: #909399">-</div>
+            <div v-if="getShipmentProducts(row).length > 0" class="product-preview-list">
+              <div
+                v-for="item in getShipmentProducts(row)"
+                :key="item.id"
+                class="product-preview-item"
+              >
+                <div class="product-preview-head">
+                  <span class="product-preview-code">{{ item.product?.seller_sku || item.product_id }}</span>
+                  <span v-if="item.product?.marketplace" class="product-preview-marketplace">{{ item.product.marketplace }}</span>
+                </div>
+                <div class="product-preview-title">{{ item.product?.title || '-' }}</div>
+                <div v-if="hasProductIdentity(item.product)" class="product-preview-meta">
+                  <span v-if="item.product?.asin">{{ labels.asin }}: {{ item.product.asin }}</span>
+                  <span v-if="item.product?.fnsku">{{ labels.fnsku }}: {{ item.product.fnsku }}</span>
+                </div>
+                <div v-if="hasProductSupplier(item.product)" class="product-preview-meta">
+                  <span>{{ labels.supplier }}: {{ formatProductSupplier(item.product) }}</span>
+                </div>
+              </div>
+              <div v-if="getHiddenProductCount(row) > 0" class="product-preview-more">
+                {{ labels.moreProducts.replace('{count}', String(getHiddenProductCount(row))) }}
+              </div>
+            </div>
+            <div v-else class="product-preview-empty">-</div>
+          </template>
+        </el-table-column>
+        <el-table-column :label="labels.logistics" min-width="240">
+          <template #default="{ row }">
+            <div class="logistics-block">
+              <div v-if="formatLogisticsProvider(row)" class="logistics-line">
+                {{ labels.logisticsProvider }}: {{ formatLogisticsProvider(row) }}
+              </div>
+              <div v-if="formatShippingRate(row)" class="logistics-line">
+                {{ labels.shippingRate }}: {{ formatShippingRate(row) }}
+              </div>
+              <div v-if="row.carrier" class="logistics-line">{{ labels.carrier }}: {{ row.carrier }}</div>
+              <div v-if="row.tracking_number" class="logistics-line">{{ labels.trackingNumber }}: {{ row.tracking_number }}</div>
+              <div
+                v-if="!formatLogisticsProvider(row) && !formatShippingRate(row) && !row.carrier && !row.tracking_number"
+                class="logistics-empty"
+              >
+                -
+              </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column :label="labels.skuCount" width="100" align="center">
+        <el-table-column :label="labels.timeline" min-width="210">
           <template #default="{ row }">
-            <el-tag type="info">{{ row.items?.length || 0 }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column :label="labels.timeline" width="180">
-          <template #default="{ row }">
-            <div style="font-size: 12px">
+            <div class="timeline-block">
               <div v-if="row.ship_date">{{ labels.shippedAt }}: {{ formatDate(row.ship_date) }}</div>
               <div v-if="row.actual_delivery_date">{{ labels.deliveredAt }}: {{ formatDate(row.actual_delivery_date) }}</div>
-              <div v-if="!row.ship_date && !row.actual_delivery_date" style="color: #909399">-</div>
+              <div v-if="!row.ship_date && !row.actual_delivery_date">-</div>
             </div>
           </template>
         </el-table-column>
         <el-table-column prop="remark" :label="labels.remark" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="created_at" :label="labels.createdAt" width="160" />
-        <el-table-column :label="labels.actions" width="360" fixed="right">
+        <el-table-column :label="labels.actions" width="430" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="handleView(row)">{{ labels.view }}</el-button>
             <el-button
-              v-if="row.status === 'DRAFT'"
+              v-if="canPlatformReceive(row)"
+              size="small"
+              type="primary"
+              plain
+              @click="handlePlatformReceive(row)"
+            >
+              {{ labels.platformReceive }}
+            </el-button>
+            <el-button
+              v-if="canEditShipment(row)"
               size="small"
               type="primary"
               @click="handleEdit(row)"
@@ -225,11 +262,12 @@ import {
   markDelivered,
   cancelShipment
 } from '../api'
-import type { Shipment, ShipmentStatus } from '../types'
-import { SHIPMENT_STATUS_CONFIG } from '../types'
+import type { Shipment, ShipmentStatus, ShipmentReceiptStatus } from '../types'
+import { SHIPMENT_STATUS_CONFIG, SHIPMENT_RECEIPT_STATUS_CONFIG } from '../types'
 import type { MarkShippedParams } from '../api'
 import WarehouseSelector from '@/modules/inventory/components/WarehouseSelector.vue'
 import { useLocaleStore } from '@/modules/common/stores/localeStore'
+import type { ProductSummary } from '@/modules/product/types'
 
 const router = useRouter()
 const localeStore = useLocaleStore()
@@ -242,22 +280,32 @@ const labels = computed(() => {
       export: 'Export Excel',
       status: 'Status',
       allStatus: 'All Status',
+      receiptStatus: 'Receipt',
       warehouse: 'Warehouse',
       allWarehouses: 'All Warehouses',
       keyword: 'Keyword',
       keywordPlaceholder: 'Shipment/Order/Tracking',
       search: 'Search',
       reset: 'Reset',
-      clearFilter: 'Clear Filter',
+      searchTitle: 'Search Shipments',
+      searchDescription: 'Search by shipment number, order number, tracking number, status, and warehouse.',
       shipmentNumber: 'Shipment No.',
       orderNumber: 'Order No.',
+      productInfo: 'Products',
+      asin: 'ASIN',
+      fnsku: 'FNSKU',
+      supplier: 'Supplier',
+      logisticsProvider: 'Provider',
+      shippingRate: 'Rate',
+      moreProducts: 'and {count} more products',
       logistics: 'Logistics',
       carrier: 'Carrier',
       trackingNumber: 'Tracking',
       carrierPlaceholder: 'Enter carrier name',
       trackingPlaceholder: 'Enter tracking number',
       shippingCost: 'Shipping Cost',
-      skuCount: 'SKU Count',
+      inventoryFlowHint: 'Shipment consumes pending shipment stock only. Confirm locks it, ship moves it to in transit.',
+      productCount: 'Product Count',
       timeline: 'Timeline',
       shippedAt: 'Shipped',
       deliveredAt: 'Delivered',
@@ -269,6 +317,7 @@ const labels = computed(() => {
       confirm: 'Confirm',
       markShipped: 'Mark Shipped',
       markDelivered: 'Mark Delivered',
+      platformReceive: 'Platform Receive',
       cancel: 'Cancel',
       confirmShipmentConfirm: 'Confirm this shipment? Inventory will be locked.',
       confirmTitle: 'Confirm',
@@ -276,7 +325,7 @@ const labels = computed(() => {
       cancelText: 'Cancel',
       markShippedConfirm: 'Confirm shipment is shipped?',
       markDeliveredConfirm: 'Confirm shipment is delivered?',
-      cancelConfirm: 'Cancel this shipment? Inventory must be restored manually.',
+      cancelConfirm: 'Cancel this shipment? Locked inventory will be released automatically.',
       confirmed: 'Shipment confirmed',
       markedShipped: 'Marked as shipped',
       markedDelivered: 'Marked as delivered',
@@ -293,22 +342,32 @@ const labels = computed(() => {
     export: '导出Excel',
     status: '状态',
     allStatus: '全部状态',
+    receiptStatus: '接收状态',
     warehouse: '仓库',
     allWarehouses: '全部仓库',
     keyword: '关键词',
     keywordPlaceholder: '发货单号/订单号/追踪号',
     search: '搜索',
     reset: '重置',
-    clearFilter: '清除筛选',
-    shipmentNumber: '发货单号',
+      searchTitle: '搜索发货单',
+      searchDescription: '按发货单号、订单号、追踪号、状态和仓库快速定位发货单。',
+      shipmentNumber: '发货单号',
     orderNumber: '订单号',
+    productInfo: '产品信息',
+    asin: 'ASIN',
+    fnsku: 'FNSKU',
+    supplier: '供应商',
+    logisticsProvider: '物流商',
+    shippingRate: '报价/服务',
+    moreProducts: '等 {count} 个产品',
     logistics: '物流信息',
     carrier: '承运商',
     trackingNumber: '追踪号',
     carrierPlaceholder: '输入承运商名称',
     trackingPlaceholder: '输入物流追踪号',
     shippingCost: '运费',
-    skuCount: 'SKU数量',
+    inventoryFlowHint: '发货只消耗待出库存。确认时锁定待出，标记发货后转为在途。',
+    productCount: '产品数量',
     timeline: '时间节点',
     shippedAt: '发货',
     deliveredAt: '签收',
@@ -320,6 +379,7 @@ const labels = computed(() => {
     confirm: '确认',
     markShipped: '标记发货',
     markDelivered: '标记签收',
+    platformReceive: '平台上架',
     cancel: '取消',
     confirmShipmentConfirm: '确认该发货单？库存将被锁定。',
     confirmTitle: '提示',
@@ -327,7 +387,7 @@ const labels = computed(() => {
     cancelText: '取消',
     markShippedConfirm: '确认该发货单已发货？',
     markDeliveredConfirm: '确认该发货单已签收？',
-    cancelConfirm: '确认取消该发货单？注意：取消后需要手动恢复库存',
+    cancelConfirm: '确认取消该发货单？已锁定库存会自动解除',
     confirmed: '发货单已确认',
     markedShipped: '已标记为发货',
     markedDelivered: '已标记为签收',
@@ -360,6 +420,74 @@ const statusLabels = computed(() => {
 
 const getStatusLabel = (status: ShipmentStatus) => {
   return (statusLabels.value as Record<string, string>)[status] || status
+}
+
+const receiptStatusLabels = computed(() => {
+  if (localeStore.isEnglish) {
+    return {
+      PENDING: 'Pending',
+      PARTIAL: 'Partial',
+      COMPLETED: 'Completed'
+    }
+  }
+  return {
+    PENDING: '待接收',
+    PARTIAL: '部分接收',
+    COMPLETED: '已接收'
+  }
+})
+
+const getReceiptStatusLabel = (status: ShipmentReceiptStatus) => {
+  return (receiptStatusLabels.value as Record<string, string>)[status] || status
+}
+
+const getShipmentProducts = (shipment: Shipment) => shipment.items?.slice(0, 2) || []
+
+const getHiddenProductCount = (shipment: Shipment) => {
+  const total = shipment.items?.length || 0
+  return total > 2 ? total - 2 : 0
+}
+
+const hasProductIdentity = (product?: ProductSummary) => {
+  return Boolean(product?.asin || product?.fnsku)
+}
+
+const hasProductSupplier = (product?: ProductSummary) => {
+  return Boolean(product?.supplier_name || product?.supplier_code)
+}
+
+const formatProductSupplier = (product?: ProductSummary) => {
+  if (!product) return '-'
+  if (product.supplier_name && product.supplier_code) {
+    return `${product.supplier_name} (${product.supplier_code})`
+  }
+  return product.supplier_name || product.supplier_code || '-'
+}
+
+const formatLogisticsProvider = (shipment: Shipment) => {
+  const provider = shipment.logistics_provider as { provider_name?: string; provider_code?: string } | undefined
+  if (!provider) return ''
+  if (provider.provider_name && provider.provider_code) {
+    return `${provider.provider_name} (${provider.provider_code})`
+  }
+  return provider.provider_name || provider.provider_code || ''
+}
+
+const formatShippingRate = (shipment: Shipment) => {
+  const rate = shipment.shipping_rate as {
+    service?: { service_name?: string; service_code?: string }
+    service_name?: string
+    pricing_method?: string
+    transport_mode?: string
+  } | undefined
+  if (!rate) return ''
+  const serviceName = rate.service?.service_name || rate.service_name
+  const serviceCode = rate.service?.service_code
+  const serviceDisplay = serviceName && serviceCode ? `${serviceName} (${serviceCode})` : (serviceName || serviceCode || '')
+  if (serviceDisplay && rate.transport_mode) {
+    return `${serviceDisplay} / ${rate.transport_mode}`
+  }
+  return serviceDisplay || rate.transport_mode || rate.pricing_method || ''
 }
 
 // 列表数据
@@ -439,18 +567,6 @@ const handleReset = () => {
   handleSearch()
 }
 
-// 快速筛选
-const handleQuickFilter = (status: ShipmentStatus) => {
-  searchForm.status = status
-  handleSearch()
-}
-
-// 清除筛选
-const handleClearFilter = () => {
-  searchForm.status = ''
-  handleSearch()
-}
-
 // 新建
 const handleCreate = () => {
   router.push('/shipping/shipments/create')
@@ -459,6 +575,18 @@ const handleCreate = () => {
 // 查看详情
 const handleView = (row: Shipment) => {
   router.push(`/shipping/shipments/${row.id}`)
+}
+
+const canPlatformReceive = (row: Shipment) => {
+  return ['SHIPPED', 'DELIVERED'].includes(row.status) && row.receipt_status !== 'COMPLETED'
+}
+
+const handlePlatformReceive = (row: Shipment) => {
+  router.push(`/shipping/shipments/${row.id}`)
+}
+
+const canEditShipment = (row: Shipment) => {
+  return ['DRAFT', 'CONFIRMED'].includes(row.status)
 }
 
 // 编辑
@@ -596,13 +724,158 @@ onMounted(() => {
 }
 
 .search-form {
-  margin-bottom: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
 }
 
-.quick-filters {
+.search-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
   margin-bottom: 20px;
-  padding: 10px;
-  background: #f5f7fa;
-  border-radius: 4px;
+  padding: 16px 18px;
+  border: 1px solid #ebeef5;
+  border-radius: 12px;
+  background: #fafafa;
+}
+
+.search-toolbar__intro {
+  min-width: 220px;
+}
+
+.search-toolbar__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.search-toolbar__meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.search-form__keyword :deep(.el-input) {
+  width: 260px;
+}
+
+.search-form__actions {
+  margin-left: auto;
+}
+
+.shipment-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shipment-stock-note {
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.6;
+}
+
+.shipment-number {
+  font-weight: 700;
+  color: #111827;
+}
+
+.shipment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.product-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.product-preview-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.product-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.product-preview-code {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.product-preview-marketplace {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 11px;
+  line-height: 20px;
+}
+
+.product-preview-title {
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.5;
+}
+
+.product-preview-meta,
+.product-preview-more {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+.product-preview-empty {
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.logistics-block,
+.timeline-block {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #6b7280;
+}
+
+.logistics-line {
+  color: #4b5563;
+}
+
+.logistics-empty {
+  color: #9ca3af;
+}
+
+@media (max-width: 960px) {
+  .search-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-form__actions {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .search-form__keyword {
+    width: 100%;
+  }
+
+  .search-form__keyword :deep(.el-input) {
+    width: 100%;
+  }
 }
 </style>

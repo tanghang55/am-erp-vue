@@ -1,4 +1,4 @@
-import type { DraftItem } from '@/modules/procurement/utils/skuSelection'
+import type { DraftItem } from '@/modules/procurement/utils/productSelection'
 import type { CreatePurchaseOrderParams } from '@/modules/procurement/types'
 
 export type SupplierGroup = {
@@ -50,9 +50,9 @@ export function buildCreatePayloads(
   const payloads = groups
     .map(group => {
       const orderItems = group.items
-        .filter(item => item.sku_id)
+        .filter(item => item.product_id)
         .map(item => ({
-          sku_id: item.sku_id,
+          product_id: item.product_id,
           qty_ordered: item.qty_ordered,
           unit_cost: Number(item.unit_cost || 0)
         }))

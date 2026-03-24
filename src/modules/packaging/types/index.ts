@@ -2,8 +2,6 @@
  * Packaging Module TypeScript Types
  */
 
-import type { ApiResponse, PaginatedData } from '@/modules/common/types'
-
 // ============================================================================
 // Packaging Item Types
 // ============================================================================
@@ -45,10 +43,14 @@ export interface PackagingItem {
   quantity_on_hand: number  // 库存数量 - 整数
   reorder_point?: number | null  // 补货点 - 整数
   reorder_quantity?: number | null  // 补货数量 - 整数
+  supplier_id?: number | null
   supplier_name?: string | null
   supplier_contact?: string | null
   status: PackagingStatus
   notes?: string | null
+  reference_count?: number
+  deletable?: boolean
+  delete_block_reason?: string | null
   created_by: number
   created_at: string
   updated_at: string
@@ -68,7 +70,7 @@ export interface CreatePackagingItemRequest {
   quantity_on_hand?: number
   reorder_point?: number
   reorder_quantity?: number
-  supplier_name?: string
+  supplier_id?: number
   supplier_contact?: string
   status?: PackagingStatus
   notes?: string
@@ -87,7 +89,7 @@ export interface UpdatePackagingItemRequest {
   unit?: string
   reorder_point?: number
   reorder_quantity?: number
-  supplier_name?: string
+  supplier_id?: number
   supplier_contact?: string
   status?: PackagingStatus
   notes?: string
@@ -178,6 +180,74 @@ export interface UsageSummaryItem {
   total_in: number
   total_out: number
   total_cost: number
+}
+
+export interface PackagingProcurementPlan {
+  id: number
+  plan_date: string
+  packaging_item_id: number
+  packaging_item_code?: string
+  packaging_item_name?: string
+  packaging_item_unit?: string
+  required_qty: number
+  on_hand_qty: number
+  shortage_qty: number
+  suggested_qty: number
+  status: 'PENDING' | 'CONVERTED' | 'CANCELLED'
+  packaging_purchase_order_id?: number
+  packaging_purchase_order_number?: string
+  converted_at?: string
+  source_json?: string
+  remark?: string
+  created_at?: string
+  updated_at?: string
+}
+
+export interface PackagingPurchaseOrderItem {
+  id: number
+  packaging_purchase_order_id: number
+  packaging_item_id: number
+  packaging_item_code?: string
+  packaging_item_name?: string
+  packaging_item_unit?: string
+  qty_ordered: number
+  qty_received: number
+  unit_cost: number
+  currency: string
+  subtotal: number
+  created_at?: string
+  updated_at?: string
+}
+
+export interface PackagingPurchaseOrder {
+  id: number
+  po_number: string
+  status: 'DRAFT' | 'ORDERED' | 'RECEIVED' | 'CLOSED'
+  currency: string
+  total_amount: number
+  ordered_at?: string
+  received_at?: string
+  remark?: string
+  created_by?: number
+  updated_by?: number
+  created_at?: string
+  updated_at?: string
+  items?: PackagingPurchaseOrderItem[]
+}
+
+export interface PackagingProcurementRun {
+  id: number
+  run_no: string
+  trigger_type: 'MANUAL' | 'SCHEDULED'
+  status: 'RUNNING' | 'SUCCESS' | 'FAILED'
+  started_at?: string
+  finished_at?: string
+  input_summary?: string
+  output_summary?: string
+  error_message?: string
+  created_by?: number
+  created_at?: string
+  updated_at?: string
 }
 
 // ============================================================================

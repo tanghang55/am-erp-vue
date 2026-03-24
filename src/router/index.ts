@@ -27,14 +27,24 @@ const router = createRouter({
           component: () => import('@/modules/identity/views/UserList.vue')
         },
         {
+          path: 'integrations/authorizations',
+          name: 'integration-authorizations',
+          component: () => import('@/modules/identity/views/IntegrationAuthorizationList.vue')
+        },
+        {
           path: 'system/audit-logs',
           name: 'system-audit-logs',
           component: () => import('@/modules/system/views/AuditLogList.vue')
         },
         {
-          path: 'system/settings',
-          name: 'system-settings',
-          component: () => import('@/modules/system/views/SystemSettings.vue')
+          path: 'system/monitor',
+          name: 'system-monitor',
+          component: () => import('@/modules/system/views/SystemMonitor.vue')
+        },
+        {
+          path: 'system/config-center',
+          name: 'system-config-center',
+          component: () => import('@/modules/system/views/ConfigCenter.vue')
         },
         {
           path: 'system/field-labels',
@@ -52,14 +62,24 @@ const router = createRouter({
           component: () => import('@/modules/product/views/ProductList.vue')
         },
         {
+          path: 'product/config',
+          name: 'product-config',
+          component: () => import('@/modules/product/views/ProductConfigList.vue')
+        },
+        {
           path: 'product/images/:id',
           name: 'product-images',
           component: () => import('@/modules/product/views/ProductImageManager.vue')
         },
         {
-          path: 'product/parents',
-          name: 'product-parents',
-          component: () => import('@/modules/product/views/ProductParentList.vue')
+          path: 'product/groups',
+          name: 'product-groups',
+          component: () => import('@/modules/product/views/ProductGroupList.vue')
+        },
+        {
+          path: 'product/groups/:id',
+          name: 'product-groups-detail',
+          component: () => import('@/modules/product/views/ProductGroupDetail.vue')
         },
         {
           path: 'product/combos',
@@ -88,20 +108,39 @@ const router = createRouter({
           component: () => import('@/modules/inventory/views/InventoryList.vue')
         },
         {
-          path: 'inventory/movements',
-          name: 'inventory-movements',
-          component: () => import('@/modules/inventory/views/MovementList.vue')
+          path: 'inventory/lots',
+          name: 'inventory-lots',
+          component: () => import('@/modules/inventory/views/InventoryLotList.vue')
         },
         {
-          path: 'inventory/movements/create',
-          name: 'inventory-movements-create',
-          component: () => import('@/modules/inventory/views/MovementCreate.vue')
+          path: 'inventory/movements',
+          name: 'inventory-movements',
+          component: () => import('@/modules/inventory/views/InventoryMovementLogList.vue')
+        },
+        {
+          path: 'inventory/adjustments',
+          name: 'inventory-adjustments',
+          component: () => import('@/modules/inventory/views/InventoryAdjustment.vue')
         },
         // Procurement Module Routes
         {
           path: 'procurement/purchase-orders',
           name: 'procurement-purchase-orders',
           component: () => import('@/modules/procurement/views/PurchaseOrderList.vue')
+        },
+        {
+          path: 'procurement/replenishment',
+          redirect: '/procurement/replenishment/plans'
+        },
+        {
+          path: 'procurement/replenishment/strategies',
+          name: 'procurement-replenishment-strategies',
+          component: () => import('@/modules/procurement/views/ReplenishmentStrategyList.vue')
+        },
+        {
+          path: 'procurement/replenishment/plans',
+          name: 'procurement-replenishment-plans',
+          component: () => import('@/modules/procurement/views/ReplenishmentPlanList.vue')
         },
         {
           path: 'procurement/purchase-orders/create',
@@ -123,6 +162,22 @@ const router = createRouter({
           name: 'procurement-assembly',
           component: () => import('@/modules/procurement/views/AssemblyManagement.vue')
         },
+        // Sales Module Routes
+        {
+          path: 'sales/orders',
+          name: 'sales-orders',
+          component: () => import('@/modules/sales/views/SalesOrderList.vue')
+        },
+        {
+          path: 'sales/orders/import',
+          name: 'sales-order-import',
+          component: () => import('@/modules/sales/views/SalesOrderImport.vue')
+        },
+        {
+          path: 'sales/orders/:id',
+          name: 'sales-order-detail',
+          component: () => import('@/modules/sales/views/SalesOrderDetail.vue')
+        },
         // Shipping Module Routes
         {
           path: 'shipping/shipments',
@@ -132,6 +187,11 @@ const router = createRouter({
         {
           path: 'shipping/shipments/create',
           name: 'shipping-shipments-create',
+          component: () => import('@/modules/shipping/views/ShipmentCreate.vue')
+        },
+        {
+          path: 'shipping/shipments/:id/edit',
+          name: 'shipping-shipments-edit',
           component: () => import('@/modules/shipping/views/ShipmentCreate.vue')
         },
         {
@@ -167,9 +227,39 @@ const router = createRouter({
           component: () => import('@/modules/finance/views/CashLedgerList.vue')
         },
         {
+          path: 'finance/cash-ledger/audit',
+          name: 'finance-cash-ledger-audit',
+          component: () => import('@/modules/finance/views/CashLedgerAuditList.vue')
+        },
+        {
           path: 'finance/costing',
           name: 'finance-costing',
-          component: () => import('@/modules/finance/views/CostingSnapshotList.vue')
+          component: () => import('@/modules/finance/views/ProductCostLedger.vue')
+        },
+        {
+          path: 'finance/costing/snapshots',
+          name: 'finance-costing-snapshots',
+          component: () => import('@/modules/finance/views/CostingSnapshotHistory.vue')
+        },
+        {
+          path: 'finance/profit',
+          name: 'finance-profit',
+          component: () => import('@/modules/finance/views/ProfitDashboard.vue')
+        },
+        {
+          path: 'finance/order-profit',
+          name: 'finance-order-profit',
+          component: () => import('@/modules/finance/views/OrderProfitList.vue')
+        },
+        {
+          path: 'finance/product-cost',
+          name: 'finance-product-cost',
+          redirect: { name: 'finance-costing' }
+        },
+        {
+          path: 'finance/exchange-rates',
+          name: 'finance-exchange-rates',
+          component: () => import('@/modules/finance/views/ExchangeRateList.vue')
         },
         // Packaging Module Routes
         {
@@ -181,6 +271,16 @@ const router = createRouter({
           path: 'packaging/ledger',
           name: 'packaging-ledger',
           component: () => import('@/modules/packaging/views/PackagingLedgerList.vue')
+        },
+        {
+          path: 'packaging/procurement-plans',
+          name: 'packaging-procurement-plans',
+          component: () => import('@/modules/packaging/views/PackagingProcurementPlanList.vue')
+        },
+        {
+          path: 'packaging/procurement-orders',
+          name: 'packaging-procurement-orders',
+          component: () => import('@/modules/packaging/views/PackagingPurchaseOrderList.vue')
         }
         // 后续可以添加更多路由
       ]

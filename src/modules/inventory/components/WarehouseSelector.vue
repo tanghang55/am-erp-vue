@@ -1,40 +1,33 @@
 <template>
-  <el-select
-    :model-value="modelValue"
-    @update:model-value="handleChange"
-    :placeholder="resolvedPlaceholder"
-    :clearable="clearable"
-    :disabled="disabled"
-    :loading="loading"
-    filterable
-    style="width: 100%"
-  >
-    <el-option
-      v-for="warehouse in warehouses"
-      :key="warehouse.id"
-      :label="`[${warehouse.code}] ${warehouse.name}`"
-      :value="warehouse.id"
-      :disabled="warehouse.status !== 'ACTIVE' && !allowInactive"
-    >
-      <div style="display: flex; justify-content: space-between; align-items: center">
-        <span>{{ warehouse.code }} - {{ warehouse.name }}</span>
-        <el-tag
-          v-if="warehouse.status !== 'ACTIVE'"
-          size="small"
-          type="warning"
-        >
-          {{ statusLabels[warehouse.status] || warehouse.status }}
-        </el-tag>
-      </div>
-    </el-option>
-  </el-select>
+  <div class="picker-field">
+    <el-input
+      :model-value="displayValue"
+      :placeholder="resolvedPlaceholder"
+      readonly
+      :disabled="disabled"
+      @click="openDialog"
+    />
+    <el-button type="primary" plain :disabled="disabled" @click="openDialog">
+      {{ actionLabels.choose }}
+    </el-button>
+    <el-button v-if="clearable && modelValue" :disabled="disabled" @click="clearSelection">
+      {{ actionLabels.clear }}
+    </el-button>
+    <WarehousePickerDialog
+      v-model="dialogVisible"
+      :only-active="onlyActive"
+      :allow-inactive="allowInactive"
+      @confirm="handleConfirm"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { getActiveWarehouses, getWarehouseList } from '../api'
+import { ref, computed, watch } from 'vue'
+import { getWarehouseDetail } from '../api'
 import type { Warehouse } from '../types'
 import { useLocaleStore } from '@/modules/common/stores/localeStore'
+import WarehousePickerDialog from './WarehousePickerDialog.vue'
 
 interface Props {
   modelValue?: number | null
@@ -59,72 +52,73 @@ const emit = defineEmits<{
   'change': [warehouse: Warehouse | null]
 }>()
 
-const warehouses = ref<Warehouse[]>([])
-const loading = ref(false)
 const localeStore = useLocaleStore()
+const dialogVisible = ref(false)
+const selectedWarehouse = ref<Warehouse | null>(null)
 
 const resolvedPlaceholder = computed(() => {
   if (props.placeholder) return props.placeholder
   return localeStore.isEnglish ? 'Select warehouse' : '请选择仓库'
 })
 
-const statusLabels = computed(() => {
-  if (localeStore.isEnglish) {
-    return {
-      ACTIVE: 'Active',
-      INACTIVE: 'Inactive',
-      CLOSED: 'Closed'
-    }
+const actionLabels = computed(() => ({
+  choose: localeStore.isEnglish ? 'Choose' : '选择',
+  clear: localeStore.isEnglish ? 'Clear' : '清空'
+}))
+
+const displayValue = computed(() => {
+  if (!selectedWarehouse.value) return ''
+  if (selectedWarehouse.value.name && selectedWarehouse.value.code) {
+    return `${selectedWarehouse.value.name} (${selectedWarehouse.value.code})`
   }
-  return {
-    ACTIVE: '启用',
-    INACTIVE: '停用',
-    CLOSED: '关闭'
-  }
+  return selectedWarehouse.value.name || selectedWarehouse.value.code || ''
 })
 
-// 加载仓库列表
-const loadWarehouses = async () => {
-  loading.value = true
-  try {
-    if (props.onlyActive) {
-      // 只加载激活状态的仓库
-      const res = await getActiveWarehouses()
-      if (res.data) {
-        warehouses.value = res.data
-      }
-    } else {
-      // 加载所有仓库
-      const res = await getWarehouseList({
-        page: 1,
-        page_size: 1000  // 获取所有仓库
-      })
-      if (res.data) {
-        warehouses.value = res.data.data
-      }
-    }
-  } catch (error) {
-    console.error('Failed to load warehouses:', error)
-  } finally {
-    loading.value = false
+const loadSelectedWarehouse = async (id: number | null | undefined) => {
+  if (!id) {
+    selectedWarehouse.value = null
+    return
+  }
+  if (selectedWarehouse.value?.id === id) {
+    return
+  }
+  const res = await getWarehouseDetail(id)
+  if (res.success) {
+    selectedWarehouse.value = res.data
   }
 }
 
-// 处理选择变化
-const handleChange = (value: number | null) => {
-  emit('update:modelValue', value)
+const openDialog = () => {
+  if (props.disabled) return
+  dialogVisible.value = true
+}
 
-  // 找到对应的仓库对象并触发 change 事件
-  const warehouse = warehouses.value.find(w => w.id === value) || null
+const clearSelection = () => {
+  selectedWarehouse.value = null
+  emit('update:modelValue', null)
+  emit('change', null)
+}
+
+const handleConfirm = (warehouse: Warehouse) => {
+  selectedWarehouse.value = warehouse
+  emit('update:modelValue', warehouse.id)
   emit('change', warehouse)
 }
 
-onMounted(() => {
-  loadWarehouses()
-})
-
-// 暴露方法供父组件调用
-defineExpose({
-  refresh: loadWarehouses
-})
+watch(
+  () => props.modelValue,
+  (value) => {
+    void loadSelectedWarehouse(value)
+  },
+  { immediate: true }
+)
 </script>
+
+<style scoped>
+.picker-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  width: 100%;
+}
+</style>
